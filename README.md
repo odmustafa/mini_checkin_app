@@ -91,3 +91,11 @@ This app follows the Ethereal Engineering Technical Codex principles:
 - Separation of Concerns: Maintaining clear boundaries between components
 
 It serves as a focused prototype for the check-in workflow, based on the architecture and best practices of the main Front Desk Ops application.
+
+## AI Usage
+
+This project relies heavily on AI technologies including:
+- Windsurf (Pro)
+- Claude 3.7 Sonnet (within Windsurf via Cascade)
+- GPT-4.1 (free limited time) (within Windsurf via Cascade)
+- ChatGPT (Pro)
