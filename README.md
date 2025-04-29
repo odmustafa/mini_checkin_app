@@ -108,6 +108,6 @@ This project is for developing an application that will be used by staff at Trib
 - (Not as critical, but still important) Incident Report Module (for staff to create Incident Reports - hopefully implimented before incident occures which requires reporting (i.e. Breach of the Peace Report (Tx Tabc Enf 5122))
 - Not cry (...I am but a simple man .__.;; )
 - (Future components) Staff Task List (for internal use)
-- (Future components) Staff Schedule Management (for internal use()
+- (Future components) Staff Schedule Management (for internal use)
 - (Future components) Implimentation of Guest Pass feature (this will enable new Membership Perk for month/year membership renewals)
 
