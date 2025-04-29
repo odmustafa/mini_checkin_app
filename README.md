@@ -89,9 +89,24 @@ This project follows the Ethereal Engineering Technical Codex principles:
 It serves as a focused prototype for the check-in workflow, based on the architecture and best practices of the main Front Desk Ops application.
 
 ## AI Usage
-
 This project relies heavily on AI technologies including:
 - Windsurf (Pro)
 - Claude 3.7 Sonnet (within Windsurf via Cascade)
 - GPT-4.1 (free limited time) (within Windsurf via Cascade)
 - ChatGPT (Pro)
+
+## Useage
+This project is for developing an application that will be used by staff at Tribute Music Gallery primarily to 
+- Check-in members upon arrival
+- New account activation
+
+## TO-DO
+- (MISSION CRITICAL) Get all of the parts of the New Account Activation flow functioning.
+- (MISSION CRITICAL) Get Member Check-in process functioning
+- (Not as critical, but still important) DJ/Artist list and check-in
+- (Not as critical, but still important) DJ/Artist guestlist check-in
+- (Not as critical, but still important) Incident Report Module (for staff to create Incident Reports - hopefully implimented before incident occures which requires reporting (i.e. Breach of the Peace Report (Tx Tabc Enf 5122)) 
+- (Future components) Staff Task List (for internal use)
+- (Future components) Staff Schedule Management (for internal use()
+- (Future components) Implimentation of Guest Pass feature (this will enable new Membership Perk for month/year membership renewals)
+
