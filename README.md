@@ -59,11 +59,6 @@ Then open http://localhost:3000 (or the port shown in the console) in your brows
 - **Electron**: Main process in `src/main.js`
 - **Services**: Wix API integration in `src/services/`
 
-## Development
-This project follows the Ethereal Engineering Technical Codex principles:
-- **Boundary Protection**: Implementing strict interface contracts for APIs
-- **Fail Fast and Learn**: Using fallback mechanisms and detailed error reporting
-- **Separation of Concerns**: Maintaining clear boundaries between components
 
 ## Setup
 ```bash
@@ -85,11 +80,12 @@ This will start a web server and automatically open your browser to the app. The
 
 ---
 
-This app follows the Ethereal Engineering Technical Codex principles:
-- Boundary Protection: Implementing strict interface contracts for APIs
-- Fail Fast and Learn: Implementing early failure detection with fallback mechanisms
-- Separation of Concerns: Maintaining clear boundaries between components
-
+## Development
+This project follows the Ethereal Engineering Technical Codex principles:
+- **Boundary Protection**: Implementing strict interface contracts for APIs
+- **Fail Fast and Learn**: Using fallback mechanisms and detailed error reporting
+- **Separation of Concerns**: Maintaining clear boundaries between components
+  
 It serves as a focused prototype for the check-in workflow, based on the architecture and best practices of the main Front Desk Ops application.
 
 ## AI Usage
