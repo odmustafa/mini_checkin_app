@@ -18,6 +18,9 @@ A check-in application that reads Scan-ID export data from a CSV file and integr
 - Fixed Scan-ID data mapping for proper member lookup
 - Added detailed diagnostics for API requests and responses
 
+## New Account Activation Flow - Explained
+- Check ![New Account Activation Flow](./New-Account-Activation-flow.md) for a detailed explanation of the New Account Activation flow (now with a neat flowchart!) 
+
 ## How it works
 - Click "Scan ID" to read the latest scan from the Scan-ID CSV export
 - The app displays the member's name, DOB, ID number, and other details
