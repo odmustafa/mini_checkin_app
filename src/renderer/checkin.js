@@ -193,12 +193,29 @@ async function processScan(scan) {
     
       // Use the Wix JavaScript SDK for member search as per Wix documentation
       console.log('Using Wix SDK for member search');
-      const memberResult = await window.wixSdk.searchMember(
-        scan.FirstName,
-        scan.LastName,
-        scan.DateOfBirth
-      );
+      // Pass parameters as an object to match the expected format in WixSdkAdapter
+      const memberResult = await window.wixSdk.searchMember({
+        firstName: scan.FirstName,
+        lastName: scan.LastName,
+        dateOfBirth: scan.DateOfBirth
+      });
     
+      // Display the query details used for the search
+      if (memberResult.queryDetails) {
+        const queryDetailsHtml = `
+          <div class="query-details-panel">
+            <h4>Wix SDK Query Details</h4>
+            <div class="query-details">
+              <p><strong>Method Used:</strong> ${memberResult.queryDetails.methodUsed}</p>
+              <p><strong>First Name:</strong> "${memberResult.queryDetails.firstName}"</p>
+              <p><strong>Last Name:</strong> "${memberResult.queryDetails.lastName}"</p>
+              <p><strong>Date of Birth:</strong> "${memberResult.queryDetails.dateOfBirth}"</p>
+            </div>
+          </div>
+        `;
+        accountDiv.innerHTML += queryDetailsHtml;
+      }
+      
       // Show the diagnostics panel with the raw API response
       showDiagnostics('Wix SDK Response', memberResult);
       
@@ -207,7 +224,7 @@ async function processScan(scan) {
         return;
       }
       
-      if (!memberResult.results || memberResult.results.length === 0) {
+      if (!memberResult.items || memberResult.items.length === 0) {
         accountDiv.innerHTML = '<div class="error">No matching Wix member found.</div>';
         return;
       }
@@ -218,16 +235,16 @@ async function processScan(scan) {
           <h3>Member Found</h3>
           <p class="member-source">Source: ${memberResult.source}</p>
           <div class="member-details">
-            <div class="member-name">${memberResult.results[0].firstName} ${memberResult.results[0].lastName}</div>
-            <div class="member-id">ID: ${memberResult.results[0]._id || memberResult.results[0].id || 'N/A'}</div>
-            <div class="member-email">Email: ${memberResult.results[0].loginEmail || memberResult.results[0].email || 'N/A'}</div>
-            <div class="member-status">Status: ${memberResult.results[0].status || 'Unknown'}</div>
-            <div class="member-created">Created: ${new Date(memberResult.results[0]._createdDate || memberResult.results[0].createdDate).toLocaleString()}</div>
+            <div class="member-name">${memberResult.items[0].contact?.firstName || 'N/A'} ${memberResult.items[0].contact?.lastName || 'N/A'}</div>
+            <div class="member-id">ID: ${memberResult.items[0]._id || memberResult.items[0].id || 'N/A'}</div>
+            <div class="member-email">Email: ${memberResult.items[0].loginEmail || memberResult.items[0].contact?.emails?.[0] || 'N/A'}</div>
+            <div class="member-status">Status: ${memberResult.items[0].privacyStatus || 'Unknown'}</div>
+            <div class="member-created">Created: ${new Date(memberResult.items[0]._createdDate || memberResult.items[0].createdDate).toLocaleString()}</div>
           </div>
           <div class="member-actions">
-            <button class="view-plans-btn" data-member-id="${memberResult.results[0]._id || memberResult.results[0].id}">View Plans</button>
+            <button class="view-plans-btn" data-member-id="${memberResult.items[0]._id || memberResult.items[0].id}">View Plans</button>
           </div>
-          <div id="plans-${memberResult.results[0]._id || memberResult.results[0].id}" class="member-plans"></div>
+          <div id="plans-${memberResult.items[0]._id || memberResult.items[0].id}" class="member-plans"></div>
         </div>
       `;
       

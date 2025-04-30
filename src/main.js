@@ -7,7 +7,6 @@ const WixSdkTest = require('./services/WixSdkTest');
 const WixSdkTestSimple = require('./services/WixSdkTestSimple');
 const WixSdkInspector = require('./services/WixSdkInspector');
 const WixSdkAdapter = require('./services/WixSdkAdapter');
-const WixDirectApi = require('./services/WixDirectApi');
 const WixSdkCompatAdapter = require('./services/WixSdkCompatAdapter');
 
 let mainWindow;
@@ -73,20 +72,7 @@ ipcMain.handle('wix-sdk:adapter-test', async (event, { collectionId }) => {
   return await WixSdkAdapter.testAdapter(collectionId);
 });
 
-// Wix Direct API handler
-ipcMain.handle('wix-direct:test', async (event, { endpoint }) => {
-  return await WixDirectApi.testDirectApi(endpoint);
-});
-
-// Wix Direct API member search handler
-ipcMain.handle('wix-direct:search-member', async (event, { name, dob }) => {
-  return await WixDirectApi.directApi.searchMemberByNameOrDOB(name, dob);
-});
-
-// Wix Direct API pricing plans handler
-ipcMain.handle('wix-direct:pricing-plans', async (event, { memberId }) => {
-  return await WixDirectApi.directApi.getMemberPricingPlans(memberId);
-});
+// Direct API handlers removed - using only SDK as per requirements
 
 // Wix SDK Compatibility Adapter handler
 ipcMain.handle('wix-sdk:compat-test', async (event, { collectionId }) => {
@@ -96,4 +82,10 @@ ipcMain.handle('wix-sdk:compat-test', async (event, { collectionId }) => {
 // Wix SDK Member Search handler
 ipcMain.handle('wix-sdk:search-member', async (event, { firstName, lastName, dateOfBirth }) => {
   return await WixSdkAdapter.searchMember({ firstName, lastName, dateOfBirth });
+});
+
+// Wix SDK Query All Members handler
+ipcMain.handle('wix-sdk:query-all-members', async () => {
+  const adapter = new WixSdkAdapter();
+  return await adapter.queryAllMembers();
 });

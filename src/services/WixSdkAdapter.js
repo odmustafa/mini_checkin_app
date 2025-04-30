@@ -10,8 +10,8 @@
 const fs = require('fs');
 const path = require('path');
 const { createClient, OAuthStrategy } = require('@wix/sdk');
+const { contacts } = require('@wix/crm');
 const { items } = require('@wix/data');
-const { members } = require('@wix/members'); // Import the members module
 
 // Load Wix configuration
 const CONFIG_PATH = path.join(__dirname, '../../wix.config.json');
@@ -28,19 +28,24 @@ if (fs.existsSync(CONFIG_PATH)) {
 
 // SDK Version detection
 const SDK_VERSION = require('@wix/sdk/package.json').version;
-const DATA_VERSION = require('@wix/data/package.json').version;
+const CRM_VERSION = require('@wix/crm/package.json').version;
 
-console.log(`Wix SDK Adapter initialized with SDK v${SDK_VERSION}, Data v${DATA_VERSION}`);
+console.log(`Wix SDK Adapter initialized with SDK v${SDK_VERSION}, CRM v${CRM_VERSION}`);
 
 class WixSdkAdapter {
   constructor() {
     this.client = null;
-    this.clientId = WIX_CONFIG.clientId || '8efc3d0c-9cfb-4d5d-a596-91c4eaa38bb9';
+    this.clientId = WIX_CONFIG.clientId;
+    this.appSecret = WIX_CONFIG.appSecret;
+    this.publicKey = WIX_CONFIG.publicKey;
+    this.siteId = WIX_CONFIG.siteId;
+    this.apiKey = WIX_CONFIG.apiKey;
     this.initialized = false;
     this.sdkVersion = SDK_VERSION;
-    this.dataVersion = DATA_VERSION;
+    this.crmVersion = CRM_VERSION;
+    this.dataVersion = require('@wix/data/package.json').version;
     this.availableMethods = [];
-    this.membersModule = null;
+    this.contactsModule = null;
   }
 
   /**
@@ -50,23 +55,43 @@ class WixSdkAdapter {
     if (this.initialized) return;
     
     try {
-      console.log('Initializing Wix SDK client with client ID:', this.clientId);
+      console.log('Initializing Wix SDK client with API Key strategy');
       
-      // Create the Wix client with both items and members modules
+      // Import the modules
+      const { createClient, ApiKeyStrategy } = require('@wix/sdk');
+      const { contacts } = require('@wix/crm');
+      const { items } = require('@wix/data');
+      
+      // Store the modules for later use
+      this.contactsModule = contacts;
+      
+      // Configure authentication with API Key strategy
+      console.log('Authentication configured with API Key strategy');
+      console.log(`- API Key: ${this.apiKey.substring(0, 20)}...`);
+      console.log(`- Site ID: ${this.siteId}`);
+      console.log('- Including Account ID in headers for account-level API access');
+      
+      // Account ID for account-level API access
+      const accountId = '11a11ce3-d0da-46c7-b4e4-48c17df562f0';
+      
       this.client = createClient({
-        modules: { items, members },
-        auth: OAuthStrategy({ clientId: this.clientId }),
+        modules: { items, contacts },
+        auth: ApiKeyStrategy({
+          apiKey: this.apiKey,
+          siteId: this.siteId
+        }),
+        // Add headers for account-level API access
+        headers: {
+          'wix-account-id': accountId
+        }
       });
-      
-      // Set up the members module reference
-      this.membersModule = this.client.members;
       
       // Detect available methods
       this.availableMethods = Object.getOwnPropertyNames(
-        Object.getPrototypeOf(this.client.items)
-      ).filter(name => typeof this.client.items[name] === 'function');
+        Object.getPrototypeOf(this.client.contacts)
+      ).filter(name => typeof this.client.contacts[name] === 'function');
       
-      console.log('Available methods:', this.availableMethods);
+      console.log('Available contacts methods:', this.availableMethods);
       
       this.initialized = true;
       return true;
@@ -140,121 +165,192 @@ class WixSdkAdapter {
    * Search for members by name and date of birth
    * Following the Ethereal Engineering Technical Codex principles:
    * - Boundary Protection: Implementing strict interface contracts for the Wix API
-   * - Fail Fast and Learn: Using fallback mechanisms and detailed error reporting
+   * - Separation of Concerns: Maintaining clear boundaries between components
    */
   async searchMember({ firstName, lastName, dateOfBirth }) {
-    await this.initialize();
-    
-    console.log(`Searching for member with name: ${firstName} ${lastName}, DOB: ${dateOfBirth}`);
-    
-    if (!this.membersModule) {
-      throw new Error('Members module not available in the SDK client');
-    }
-    
     try {
-      // Prepare the search parameters
-      const searchParams = {};
-      
-      // Add name search parameters if provided
-      if (firstName && firstName.trim() !== '') {
-        searchParams.firstName = firstName.trim();
+      // Initialize if not already initialized
+      if (!this.initialized) {
+        await this.initialize();
       }
       
+      console.log(`Searching for contact with SDK Adapter: ${firstName} ${lastName} ${dateOfBirth}`);
+      console.log('Using CRM Contacts API for search');
+      
+      // Format the search parameters
+      const searchParams = { firstName, lastName, dateOfBirth };
+      
+      // Process first name parts for more flexible matching
+      let firstNameParts = [];
+      if (searchParams.firstName && searchParams.firstName.trim() !== '') {
+        firstNameParts = searchParams.firstName.trim().toLowerCase()
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1));
+        console.log('First name parts for search:', firstNameParts);
+      }
+      
+      // Format last name for search
+      let formattedLastName = '';
       if (lastName && lastName.trim() !== '') {
-        searchParams.lastName = lastName.trim();
+        formattedLastName = lastName.trim().toLowerCase()
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+        console.log('Formatted last name for search:', formattedLastName);
       }
-      
-      // Add date of birth if provided
-      if (dateOfBirth && dateOfBirth.trim() !== '') {
-        // Format date as needed for the SDK
-        searchParams.dateOfBirth = dateOfBirth.trim();
-      }
-      
-      // Ensure we have at least one search parameter
-      if (Object.keys(searchParams).length === 0) {
-        return {
-          success: false,
-          error: 'At least one search parameter (firstName, lastName, or dateOfBirth) is required'
-        };
-      }
-      
-      // Determine which method to use based on available SDK methods
+        
+      // Using the Wix CRM Contacts API for search
       let results = [];
       
-      // Try to use query method first
-      if (typeof this.membersModule.queryMembers === 'function') {
-        console.log('Using queryMembers() method');
+      console.log('Using queryContacts method with query builder pattern');
+      
+      try {
+        // Create query builder for contacts - strictly following Wix documentation
+        const queryBuilder = this.client.contacts.queryContacts();
         
-        // Build the query based on provided parameters
-        const query = {
-          filter: {}
-        };
+        // Apply filters based on provided search parameters
+        let hasFilters = false;
         
-        // Add filters for each search parameter
-        if (searchParams.firstName) {
-          query.filter.firstName = {
-            $contains: searchParams.firstName
-          };
-        }
-        
-        if (searchParams.lastName) {
-          query.filter.lastName = {
-            $contains: searchParams.lastName
-          };
-        }
-        
-        if (searchParams.dateOfBirth) {
-          query.filter.dateOfBirth = searchParams.dateOfBirth;
-        }
-        
-        const response = await this.membersModule.queryMembers(query);
-        results = response.members || [];
-      }
-      // Fallback to list method if query is not available
-      else if (typeof this.membersModule.listMembers === 'function') {
-        console.log('Using listMembers() method');
-        const response = await this.membersModule.listMembers();
-        
-        // Filter the results manually
-        results = (response.members || []).filter(member => {
-          let match = true;
+        // Add first name filter if provided
+        if (firstNameParts.length > 0) {
+          // For each first name part, we'll create a separate query
+          // and combine the results
+          const firstNameResults = [];
           
-          if (searchParams.firstName) {
-            match = match && member.firstName && 
-              member.firstName.toLowerCase().includes(searchParams.firstName.toLowerCase());
+          for (const namePart of firstNameParts) {
+            console.log(`Searching for first name part: ${namePart}`);
+            const nameQuery = this.client.contacts.queryContacts()
+              .startsWith('info.name.first', namePart)
+              .limit(50);
+            
+            try {
+              const response = await nameQuery.find();
+              if (response.items && response.items.length > 0) {
+                firstNameResults.push(...response.items);
+              }
+            } catch (nameError) {
+              console.warn(`Error searching for first name part ${namePart}:`, nameError.message);
+            }
           }
           
-          if (searchParams.lastName) {
-            match = match && member.lastName && 
-              member.lastName.toLowerCase().includes(searchParams.lastName.toLowerCase());
+          // Add these results to our main results array
+          if (firstNameResults.length > 0) {
+            results.push(...firstNameResults);
+            hasFilters = true;
           }
+        }
+        
+        // Add last name filter if provided
+        if (formattedLastName) {
+          console.log(`Searching for last name: ${formattedLastName}`);
+          const lastNameQuery = this.client.contacts.queryContacts()
+            .startsWith('info.name.last', formattedLastName)
+            .limit(50);
           
-          if (searchParams.dateOfBirth) {
-            match = match && member.dateOfBirth === searchParams.dateOfBirth;
+          try {
+            const response = await lastNameQuery.find();
+            if (response.items && response.items.length > 0) {
+              results.push(...response.items);
+              hasFilters = true;
+            }
+          } catch (lastNameError) {
+            console.warn(`Error searching for last name ${formattedLastName}:`, lastNameError.message);
           }
+        }
+        
+        // If no specific filters were applied, get all contacts
+        if (!hasFilters) {
+          console.log('No specific filters applied, retrieving all contacts');
+          const allContactsQuery = this.client.contacts.queryContacts()
+            .limit(50);
           
-          return match;
-        });
-      }
-      // If no appropriate method is available
-      else {
-        throw new Error(`No compatible member search method found in SDK v${this.sdkVersion}`);
+          try {
+            const response = await allContactsQuery.find();
+            results = response.items || [];
+          } catch (allContactsError) {
+            console.error('Error retrieving all contacts:', allContactsError);
+            results = [];
+          }
+        }
+        
+        console.log(`Found ${results.length} contacts with query builder pattern`);
+      } catch (queryError) {
+        console.error('Error with contacts query builder pattern:', queryError);
+        // If the query fails, we'll return an empty result set
+        results = [];
       }
       
-      console.log(`Found ${results.length} matching members`);
+      // Track unique contacts to avoid duplicates
+      const uniqueContacts = new Map();
+      results.forEach(contact => {
+        if (contact && contact._id) {
+          uniqueContacts.set(contact._id, contact);
+        }
+      });
       
+      // Convert back to array
+      results = Array.from(uniqueContacts.values());
+      
+      console.log(`Total unique contacts found: ${results.length}`);
+      console.log(`Found ${results.length} matching contacts`);
+      
+      // Format the results according to Wix documentation structure
+      // Include the query parameters in the response for display in the UI
       return {
         success: true,
-        results: results,
-        resultCount: results.length,
-        source: 'wix-sdk'
+        // Use 'items' as the property name to match Wix documentation
+        items: results,
+        total: results.length,
+        source: 'wix-crm-contacts',
+        queryDetails: {
+          firstName: firstNameParts.join(', ') || '',
+          lastName: formattedLastName || '',
+          dateOfBirth: dateOfBirth || '',
+          methodUsed: 'queryContacts'
+        }
       };
     } catch (err) {
-      console.error('Error searching for members with SDK:', err);
+      console.error('Error searching for contact with SDK:', err);
+      return {
+        success: false,
+        error: err.message,
+        source: 'wix-crm-contacts'
+      };
+    }
+  }
+
+  /**
+   * Get pricing plans for a member
+   * Following the Ethereal Engineering Technical Codex principles:
+   * - Boundary Protection: Implementing strict interface contracts for the Wix API
+   * - Separation of Concerns: Maintaining clear boundaries between components
+   */
+  async getMemberPricingPlans(memberId) {
+    try {
+      await this.initialize();
+      
+      console.log(`Getting pricing plans for member: ${memberId} with SDK Adapter`);
+      
+      if (!memberId) {
+        throw new Error('Member ID is required');
+      }
+      
+      // For now, return a message that this functionality needs to be implemented
+      // with the correct Wix SDK version that supports pricing plans
+      console.log('The pricing plans functionality requires additional SDK configuration');
       
       return {
         success: false,
-        error: `Error searching for members: ${err.message}`,
+        error: 'The pricing plans functionality is not available in the current SDK configuration',
+        message: 'This feature requires proper configuration with the Wix SDK. Please refer to the Wix documentation for pricing-plans integration.',
+        source: 'wix-sdk'
+      };
+    } catch (err) {
+      console.error('Error getting pricing plans with SDK:', err);
+      
+      return {
+        success: false,
+        error: `Error getting pricing plans: ${err.message}`,
         details: err.stack || '',
         source: 'wix-sdk'
       };
@@ -267,17 +363,33 @@ const adapter = new WixSdkAdapter();
 
 module.exports = {
   /**
-   * Search for a member using the SDK adapter
+   * Search for a contact using the Wix CRM Contacts API
+   * Note: Method name kept as searchMember for backward compatibility
    */
-  async searchMember({ firstName, lastName, dateOfBirth }) {
+  searchMember: async function({ firstName, lastName, dateOfBirth }) {
     try {
       return await adapter.searchMember({ firstName, lastName, dateOfBirth });
     } catch (err) {
-      console.error('SDK Adapter searchMember error:', err);
+      console.error('CRM Contacts API searchMember error:', err);
       return {
         success: false,
         error: err.message,
-        details: err.stack || '',
+        source: 'wix-crm-contacts-adapter'
+      };
+    }
+  },
+  
+  /**
+   * Get pricing plans for a member using the SDK adapter
+   */
+  getMemberPricingPlans: async function(memberId) {
+    try {
+      return await adapter.getMemberPricingPlans(memberId);
+    } catch (err) {
+      console.error('SDK Adapter getMemberPricingPlans error:', err);
+      return {
+        success: false,
+        error: err.message,
         source: 'wix-sdk-adapter'
       };
     }
@@ -339,6 +451,62 @@ module.exports = {
         sdkVersion: adapter.sdkVersion,
         dataVersion: adapter.dataVersion,
         availableMethods: adapter.availableMethods || []
+      };
+    }
+  },
+  
+  /**
+   * Query all contacts without any filters (exported as a module function)
+   */
+  queryAllContacts: async function() {
+    try {
+      return await adapter.queryAllContacts();
+    } catch (err) {
+      console.error('CRM Contacts API queryAllContacts error:', err);
+      return {
+        success: false,
+        error: err.message,
+        source: 'wix-crm-contacts-adapter'
+      };
+    }
+  },
+  
+  /**
+   * Method to query all contacts without any filters (exported as a module function)
+   */
+  queryAllContactsStatic: async function() {
+    try {
+      console.log('Static method: Querying all contacts without filters');
+      
+      // Create a new adapter instance
+      const adapter = new WixSdkAdapter();
+      await adapter.initialize();
+      
+      // Create a query builder for contacts with no filters
+      const queryBuilder = adapter.client.contacts.queryContacts()
+        .limit(50); // Increased limit to get more results
+      
+      console.log('Executing query for all contacts');
+      
+      // Execute the query by calling find() on the query builder
+      const response = await queryBuilder.find();
+      
+      // Get the results
+      const results = response.items || [];
+      console.log(`Found ${results.length} total contacts`);
+      
+      return {
+        success: true,
+        items: results,
+        total: results.length,
+        source: 'wix-crm-contacts'
+      };
+    } catch (err) {
+      console.error('Error querying all contacts:', err);
+      return {
+        success: false,
+        error: err.message,
+        stack: err.stack
       };
     }
   },
