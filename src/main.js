@@ -89,3 +89,9 @@ ipcMain.handle('wix-sdk:query-all-members', async () => {
   const adapter = new WixSdkAdapter();
   return await adapter.queryAllMembers();
 });
+
+// App restart handler
+ipcMain.handle('app:restart', () => {
+  app.relaunch();
+  app.exit();
+});

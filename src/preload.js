@@ -30,3 +30,8 @@ contextBridge.exposeInMainWorld('wixSdk', {
 contextBridge.exposeInMainWorld('wixDirect', {
   testApi: (endpoint) => ipcRenderer.invoke('wix-direct:test', { endpoint })
 });
+
+// Expose Electron API functionality
+contextBridge.exposeInMainWorld('electronAPI', {
+  restartApp: () => ipcRenderer.invoke('app:restart')
+});

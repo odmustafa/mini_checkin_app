@@ -391,3 +391,103 @@ document.getElementById('scan-btn').addEventListener('click', async () => {
   // This will fetch the latest scan and process it
   await processScan();
 });
+
+// Debug and Help panel functionality
+let lastWixResponse = null;
+let restartCount = 0;
+const sessionKey = 'mini_checkin_restart_count';
+
+// Check if we have a restart count stored in sessionStorage
+if (sessionStorage.getItem(sessionKey)) {
+  restartCount = parseInt(sessionStorage.getItem(sessionKey), 10);
+}
+
+// Debug panel functionality
+const debugBtn = document.getElementById('debug-btn');
+const debugPanel = document.getElementById('debug-panel');
+const closeDebugBtn = document.getElementById('close-debug-btn');
+const debugContent = document.getElementById('debug-content');
+
+debugBtn.addEventListener('click', () => {
+  // Toggle debug panel visibility
+  debugPanel.classList.toggle('visible');
+  
+  // If we have a Wix response, display it
+  if (lastWixResponse) {
+    debugContent.textContent = JSON.stringify(lastWixResponse, null, 2);
+  } else {
+    debugContent.textContent = 'No Wix SDK Response data available yet. Perform a scan to see data.';
+  }
+});
+
+closeDebugBtn.addEventListener('click', () => {
+  debugPanel.classList.remove('visible');
+});
+
+// Help panel functionality
+const helpBtn = document.getElementById('help-btn');
+const helpPanel = document.getElementById('help-panel');
+const closeHelpBtn = document.getElementById('close-help-btn');
+const restartBtn = document.getElementById('restart-btn');
+const supportInfo = document.getElementById('support-info');
+
+helpBtn.addEventListener('click', () => {
+  // Toggle help panel visibility
+  helpPanel.classList.toggle('visible');
+  
+  // Show support info if restart count is at least 1
+  if (restartCount > 0) {
+    supportInfo.classList.remove('hidden');
+  } else {
+    supportInfo.classList.add('hidden');
+  }
+});
+
+closeHelpBtn.addEventListener('click', () => {
+  helpPanel.classList.remove('visible');
+});
+
+restartBtn.addEventListener('click', () => {
+  // Increment restart count and save to sessionStorage
+  restartCount++;
+  sessionStorage.setItem(sessionKey, restartCount.toString());
+  
+  // Show support info if this is at least the first restart
+  if (restartCount > 0) {
+    supportInfo.classList.remove('hidden');
+  }
+  
+  // Request app restart via IPC if in Electron
+  if (window.electronAPI) {
+    window.electronAPI.restartApp();
+  } else {
+    // In web mode, just reload the page
+    window.location.reload();
+  }
+});
+
+// Modify the processScan function to store the Wix response for debugging
+const originalProcessScan = processScan;
+processScan = async function(scan) {
+  const result = await originalProcessScan.apply(this, arguments);
+  
+  // Store the last Wix response for debugging
+  if (window.lastWixResponse) {
+    lastWixResponse = window.lastWixResponse;
+  }
+  
+  return result;
+};
+
+// Modify the showDiagnostics function to capture Wix SDK responses
+const originalShowDiagnostics = processScan.showDiagnostics;
+processScan.showDiagnostics = function(title, data) {
+  // Call the original function
+  originalShowDiagnostics.apply(this, arguments);
+  
+  // If this is a Wix SDK response, store it for debugging
+  if (title.includes('Wix') || title.includes('Member') || title.includes('Contact')) {
+    window.lastWixResponse = data;
+    lastWixResponse = data;
+  }
+};
