@@ -229,22 +229,67 @@ async function processScan(scan) {
         return;
       }
     
-      // Format the member data for display
+      // Format the member data for display with confidence scores
       let memberHtml = `
         <div class="member-info">
-          <h3>Member Found</h3>
+          <h3>Contacts Found (${memberResult.items.length})</h3>
           <p class="member-source">Source: ${memberResult.source}</p>
-          <div class="member-details">
-            <div class="member-name">${memberResult.items[0].contact?.firstName || 'N/A'} ${memberResult.items[0].contact?.lastName || 'N/A'}</div>
-            <div class="member-id">ID: ${memberResult.items[0]._id || memberResult.items[0].id || 'N/A'}</div>
-            <div class="member-email">Email: ${memberResult.items[0].loginEmail || memberResult.items[0].contact?.emails?.[0] || 'N/A'}</div>
-            <div class="member-status">Status: ${memberResult.items[0].privacyStatus || 'Unknown'}</div>
-            <div class="member-created">Created: ${new Date(memberResult.items[0]._createdDate || memberResult.items[0].createdDate).toLocaleString()}</div>
+          <div class="confidence-legend">
+            <div class="confidence-info">Confidence scores: 
+              <span class="high-confidence">High (70-100)</span> | 
+              <span class="medium-confidence">Medium (40-69)</span> | 
+              <span class="low-confidence">Low (0-39)</span>
+            </div>
           </div>
-          <div class="member-actions">
-            <button class="view-plans-btn" data-member-id="${memberResult.items[0]._id || memberResult.items[0].id}">View Plans</button>
+          <div class="contacts-list">
+      `;
+      
+      // Add each contact with confidence score
+      memberResult.items.forEach((contact, index) => {
+        const confidenceScore = contact._confidence?.score || 0;
+        let confidenceClass = 'low-confidence';
+        
+        if (confidenceScore >= 70) {
+          confidenceClass = 'high-confidence';
+        } else if (confidenceScore >= 40) {
+          confidenceClass = 'medium-confidence';
+        }
+        
+        // Get contact details
+        const contactName = `${contact.info?.name?.first || ''} ${contact.info?.name?.last || ''}`;
+        const contactId = contact._id || contact.id || 'N/A';
+        const contactEmail = contact.info?.emails?.[0]?.email || 'N/A';
+        const contactCreated = new Date(contact._createdDate || contact.createdDate).toLocaleString();
+        
+        // Format confidence details
+        const confidenceDetails = contact._confidence?.details || [];
+        const confidenceDetailsHtml = confidenceDetails.length > 0 ?
+          `<div class="confidence-details">${confidenceDetails.join('<br>')}</div>` : '';
+        
+        // Add this contact to the HTML
+        memberHtml += `
+          <div class="contact-item ${confidenceClass}">
+            <div class="contact-header">
+              <span class="contact-name">${contactName}</span>
+              <span class="confidence-score">Match: ${confidenceScore}%</span>
+            </div>
+            <div class="contact-details">
+              <div class="contact-id">ID: ${contactId}</div>
+              <div class="contact-email">Email: ${contactEmail}</div>
+              <div class="contact-created">Created: ${contactCreated}</div>
+              ${confidenceDetailsHtml}
+            </div>
+            <div class="contact-actions">
+              <button class="view-plans-btn" data-member-id="${contactId}">View Plans</button>
+            </div>
+            <div id="plans-${contactId}" class="contact-plans"></div>
           </div>
-          <div id="plans-${memberResult.items[0]._id || memberResult.items[0].id}" class="member-plans"></div>
+        `;
+      });
+      
+      // Close the contacts list div
+      memberHtml += `
+          </div>
         </div>
       `;
       

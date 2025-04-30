@@ -176,6 +176,108 @@ pre {
   overflow: hidden;
 }
 
+/* Confidence-based matching styling */
+.confidence-legend {
+  background: #f8f8f8;
+  padding: 10px 15px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.confidence-info {
+  font-size: 14px;
+  color: #555;
+}
+
+.high-confidence {
+  color: #27ae60;
+  font-weight: bold;
+}
+
+.medium-confidence {
+  color: #f39c12;
+  font-weight: bold;
+}
+
+.low-confidence {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+.contacts-list {
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.contact-item {
+  border-radius: 6px;
+  padding: 15px;
+  transition: all 0.2s ease;
+}
+
+.contact-item.high-confidence {
+  background: #e8f5e9;
+  border-left: 4px solid #27ae60;
+}
+
+.contact-item.medium-confidence {
+  background: #fff8e1;
+  border-left: 4px solid #f39c12;
+}
+
+.contact-item.low-confidence {
+  background: #ffebee;
+  border-left: 4px solid #e74c3c;
+}
+
+.contact-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.contact-name {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.confidence-score {
+  font-size: 14px;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.high-confidence .confidence-score {
+  background: #27ae60;
+  color: white;
+}
+
+.medium-confidence .confidence-score {
+  background: #f39c12;
+  color: white;
+}
+
+.low-confidence .confidence-score {
+  background: #e74c3c;
+  color: white;
+}
+
+.contact-details {
+  margin-bottom: 15px;
+}
+
+.confidence-details {
+  margin-top: 10px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+  font-size: 13px;
+  color: #555;
+}
+
 /* Member subscription info styling */
 .member-subscription-info {
   display: flex;
@@ -621,6 +723,27 @@ select, input {
 .mapping-note {
   font-style: italic;
   color: #666;
+}
+
+/* Query details panel styling */
+.query-details-panel {
+  background: #f0f7ff;
+  border-radius: 6px;
+  padding: 15px;
+  margin: 15px 0;
+  border-left: 4px solid #3498db;
+}
+
+.query-details-panel h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #2980b9;
+  font-size: 16px;
+}
+
+.query-details p {
+  margin: 5px 0;
+  font-size: 14px;
 }
 
 /* Utility classes */
