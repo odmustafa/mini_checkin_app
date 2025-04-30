@@ -236,9 +236,9 @@ async function processScan(scan) {
           <p class="member-source">Source: ${memberResult.source}</p>
           <div class="confidence-legend">
             <div class="confidence-info">Confidence scores: 
-              <span class="high-confidence">High (70-100)</span> | 
-              <span class="medium-confidence">Medium (40-69)</span> | 
-              <span class="low-confidence">Low (0-39)</span>
+              <span class="high-confidence">High (60-100)</span> | 
+              <span class="medium-confidence">Medium (35-59)</span> | 
+              <span class="low-confidence">Low (0-34)</span>
             </div>
           </div>
           <div class="contacts-list">
@@ -249,9 +249,9 @@ async function processScan(scan) {
         const confidenceScore = contact._confidence?.score || 0;
         let confidenceClass = 'low-confidence';
         
-        if (confidenceScore >= 70) {
+        if (confidenceScore >= 60) {
           confidenceClass = 'high-confidence';
-        } else if (confidenceScore >= 40) {
+        } else if (confidenceScore >= 35) {
           confidenceClass = 'medium-confidence';
         }
         

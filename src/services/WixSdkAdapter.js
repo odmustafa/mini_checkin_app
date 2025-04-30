@@ -449,9 +449,16 @@ class WixSdkAdapter {
       // Calculate total confidence score
       confidenceScore = firstNameScore + lastNameScore + dobScore;
       
-      // Apply special bonus for partial first name match with exact last name match
+      // Apply special bonus for exact first name part match with exact last name match
+      // This is a very strong indicator it's the same person
+      if (firstNameMatches > 0 && hasExactLastNameMatch) {
+        // Add a substantial bonus (20 points) to ensure it's in the high confidence category
+        confidenceScore += 20;
+        matchDetails.push('Bonus: Exact first name part match with exact last name match');
+      }
+      // Apply bonus for partial first name match with exact last name match
       // This is a common scenario with nicknames or abbreviated first names
-      if (hasPartialFirstNameMatch && hasExactLastNameMatch) {
+      else if (hasPartialFirstNameMatch && hasExactLastNameMatch) {
         // Add a significant bonus (15 points) to prioritize these matches
         confidenceScore += 15;
         matchDetails.push('Bonus: Partial first name match with exact last name match');
