@@ -4,18 +4,20 @@ A check-in application that reads Scan-ID export data from a CSV file and integr
 
 ## Features
 - Scan ID data parsing from CSV exports
-- Member verification using Wix Members and Contacts APIs
-- Pricing plan retrieval for verified members
+- Contact verification using Wix CRM Contacts API
+- Pricing plan retrieval for verified contacts
 - Flexible name matching for better search results
 - API Explorer for testing different Wix API endpoints
 - Real-time Scan-ID file watching
-- Proper case conversion for improved member matching
+- Proper case conversion for improved contact matching
 
 ## Recent Improvements
-- Enhanced name extraction from Wix API responses
-- Improved member search with multiple name variations
-- Updated pricing plans API endpoint and request structure
-- Fixed Scan-ID data mapping for proper member lookup
+- Migrated from Wix Members API to CRM Contacts API for all lookups
+- Implemented query builder pattern following Wix documentation
+- Enhanced contact search with first/last name filtering
+- Added test scripts to verify contact search functionality
+- Improved authentication with ApiKeyStrategy and account-level headers
+- Fixed Scan-ID data mapping for proper contact lookup
 - Added detailed diagnostics for API requests and responses
 
 ## New Account Activation Flow - Explained
@@ -23,9 +25,9 @@ A check-in application that reads Scan-ID export data from a CSV file and integr
 
 ## How it works
 - Click "Scan ID" to read the latest scan from the Scan-ID CSV export
-- The app displays the member's name, DOB, ID number, and other details
-- It then searches for matching members in Wix using the Direct API
-- If a match is found, it displays the member information and their pricing plans
+- The app displays the person's name, DOB, ID number, and other details
+- It then searches for matching contacts in Wix using the CRM Contacts API
+- If a match is found, it displays the contact information and their pricing plans
 - You can also click "Watch Scan-ID" to monitor for new scans automatically
 
 ## Running the App
@@ -49,7 +51,9 @@ Then open http://localhost:3000 (or the port shown in the console) in your brows
 {
   "apiKey": "YOUR_WIX_API_KEY",
   "siteId": "YOUR_WIX_SITE_ID",
-  "clientId": "YOUR_WIX_CLIENT_ID"
+  "clientId": "YOUR_WIX_CLIENT_ID",
+  "appSecret": "YOUR_WIX_APP_SECRET",
+  "publicKey": "YOUR_WIX_PUBLIC_KEY"
 }
 ```
 
