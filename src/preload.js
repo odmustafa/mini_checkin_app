@@ -21,7 +21,8 @@ contextBridge.exposeInMainWorld('wixSdk', {
   testSdkSimple: (collectionId) => ipcRenderer.invoke('wix-sdk:test-simple', { collectionId }),
   inspectSdk: () => ipcRenderer.invoke('wix-sdk:inspect'),
   testAdapter: (collectionId) => ipcRenderer.invoke('wix-sdk:adapter-test', { collectionId }),
-  testCompatAdapter: (collectionId) => ipcRenderer.invoke('wix-sdk:compat-test', { collectionId })
+  testCompatAdapter: (collectionId) => ipcRenderer.invoke('wix-sdk:compat-test', { collectionId }),
+  searchMember: (firstName, lastName, dateOfBirth) => ipcRenderer.invoke('wix-sdk:search-member', { firstName, lastName, dateOfBirth })
 });
 
 // Expose Wix Direct API functionality

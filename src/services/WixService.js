@@ -106,348 +106,117 @@ module.exports = {
         firstNameVariations.push(firstNameParts[0]);
       }
       
-      console.log(`Looking up member: ${formattedFirstName} ${formattedLastName}, DOB: ${dateOfBirth}`);
-      console.log(`Original names: ${firstName} ${lastName}`);
-      console.log(`First name variations: ${firstNameVariations.join(', ')}`);
+      // Initialize results array
+      const results = [];
+      let foundExactMatch = false;
       
-      // Format DOB for Wix API (convert from MM-DD-YYYY to YYYY-MM-DD)
-      let formattedDOB = '';
-      let originalDOB = '';
-      if (dateOfBirth) {
-        originalDOB = dateOfBirth;
-        try {
-          // Handle MM-DD-YYYY format from Scan-ID and convert to YYYY-MM-DD for Wix
-          const [month, day, year] = dateOfBirth.split('-');
-          formattedDOB = `${year}-${month}-${day}`; // YYYY-MM-DD format
-          console.log(`Formatted DOB for Wix API: ${formattedDOB}`);
-        } catch (e) {
-          console.warn('Could not parse date:', dateOfBirth);
-          formattedDOB = dateOfBirth;
+      // Get the WixSdkAdapter instance
+      const { adapter } = require('./WixSdkAdapter');
+      
+      // Initialize the adapter if not already initialized
+      await adapter.initialize();
+      
+      console.log('[WixService] Searching for member using SDK:', {
+        firstName: formattedFirstName,
+        lastName: formattedLastName,
+        dateOfBirth
+      });
+      
+      // Use the SDK to query members collection
+      const membersQuery = await adapter.client.items
+        .queryDataItems({
+          dataCollectionId: 'Members'
+        })
+        .eq('status', 'ACTIVE')
+        .find();
+      
+      console.log(`[WixService] Found ${membersQuery.items.length} active members`);
+      
+      // Filter members based on our search criteria
+      const matchingMembers = membersQuery.items.filter(member => {
+        // Check if member has contact info
+        if (!member.contactDetails) return false;
+        
+        // Extract member details
+        const memberFirstName = member.contactDetails.firstName || '';
+        const memberLastName = member.contactDetails.lastName || '';
+        const memberDob = member.dateOfBirth || '';
+        
+        // Check for name match (try variations of first name)
+        const firstNameMatch = firstNameVariations.some(variation => 
+          memberFirstName.toLowerCase().includes(variation.toLowerCase()));
+        
+        const lastNameMatch = formattedLastName && 
+          memberLastName.toLowerCase().includes(formattedLastName.toLowerCase());
+        
+        // Check for DOB match if provided
+        let dobMatch = true; // Default to true if no DOB provided
+        if (dateOfBirth && dateOfBirth.trim() !== '') {
+          // Format the DOB for comparison
+          const formattedDob = dateOfBirth.replace(/\//g, '-');
+          dobMatch = memberDob === formattedDob;
+        }
+        
+        // Return true if we have matches on the provided criteria
+        return (firstNameMatch || !formattedFirstName) && 
+               (lastNameMatch || !formattedLastName) && 
+               dobMatch;
+      });
+      
+      console.log(`[WixService] Found ${matchingMembers.length} matching members`);
+      
+      // Process matching members
+      for (const member of matchingMembers) {
+        const contactInfo = member.contactDetails || {};
+        const profile = {
+          id: member._id,
+          source: 'wix-sdk',
+          firstName: contactInfo.firstName || '',
+          lastName: contactInfo.lastName || '',
+          fullName: `${contactInfo.firstName || ''} ${contactInfo.lastName || ''}`.trim(),
+          email: contactInfo.email || '',
+          phone: contactInfo.phone || '',
+          dateOfBirth: member.dateOfBirth || '',
+          status: member.status || '',
+          createdDate: member._createdDate || '',
+          membershipStatus: member.status || '',
+          extendedFields: member.extendedFields || {}
+        };
+        
+        // Check if this is an exact match
+        const exactFirstNameMatch = contactInfo.firstName && 
+          contactInfo.firstName.toLowerCase() === formattedFirstName.toLowerCase();
+        const exactLastNameMatch = contactInfo.lastName && 
+          contactInfo.lastName.toLowerCase() === formattedLastName.toLowerCase();
+        const exactDobMatch = dateOfBirth && member.dateOfBirth === dateOfBirth;
+        
+        if (exactFirstNameMatch && exactLastNameMatch && exactDobMatch) {
+          foundExactMatch = true;
+          // Add to the beginning of the results array
+          results.unshift(profile);
+        } else {
+          // Add to the end of the results array
+          results.push(profile);
         }
       }
       
-      // Try multiple approaches to find the member
-      let results = [];
-      let source = null;
+      // Return results (even if empty)
+      return {
+        success: true,
+        members: results,
+        count: results.length,
+        exactMatch: foundExactMatch,
+        message: results.length > 0 
+          ? `Found ${results.length} matching members${foundExactMatch ? ' (with exact match)' : ''}`
+          : 'No matching members found'
+      };
       
-      // Following the Ethereal Engineering Technical Codex principle of Fail Fast and Learn
-      // We'll implement a multi-layered search approach with fallbacks
-      
-      // 1. First try Members API with combined search criteria
-      try {
-        // Build a comprehensive filter based on all available name variations and DOB
-        const membersFilters = [];
-        
-        // Add filters for each first name variation
-        firstNameVariations.forEach(nameVariation => {
-          membersFilters.push({
-            filter: { fieldName: "profile.firstName", operator: "contains", value: nameVariation }
-          });
-        });
-        
-        // Add last name filter
-        if (formattedLastName) {
-          membersFilters.push({
-            filter: { fieldName: "profile.lastName", operator: "contains", value: formattedLastName }
-          });
-        }
-        
-        // Add DOB filters if available
-        if (formattedDOB) {
-          // Try both standard and extended fields for DOB
-          membersFilters.push({
-            filter: { fieldName: "extendedFields.dob", operator: "eq", value: formattedDOB }
-          });
-          membersFilters.push({
-            filter: { fieldName: "extendedFields.birthdate", operator: "eq", value: formattedDOB }
-          });
-          membersFilters.push({
-            filter: { fieldName: "extendedFields.dateOfBirth", operator: "eq", value: formattedDOB }
-          });
-          
-          // Also try with original DOB format
-          membersFilters.push({
-            filter: { fieldName: "extendedFields.dob", operator: "eq", value: originalDOB }
-          });
-          membersFilters.push({
-            filter: { fieldName: "extendedFields.birthdate", operator: "eq", value: originalDOB }
-          });
-          membersFilters.push({
-            filter: { fieldName: "extendedFields.dateOfBirth", operator: "eq", value: originalDOB }
-          });
-        }
-        
-        // Try full name combinations
-        if (formattedFirstName && formattedLastName) {
-          const fullName = `${formattedFirstName} ${formattedLastName}`.trim();
-          membersFilters.push({
-            filter: { fieldName: "profile.name", operator: "contains", value: fullName }
-          });
-        }
-        
-        // Properly structure the query according to Wix API requirements
-        // Following the memory about correct API request structure
-        const membersData = {
-          // Direct structure without nesting under 'query'
-          filter: {
-            or: membersFilters
-          },
-          paging: { limit: 10 },
-          fields: [
-            "profile",
-            "privacyStatus",
-            "status",
-            "activityStatus",
-            "extendedFields",
-            "membershipStatus"
-          ]
-        };
-        
-        console.log('[WixService] Members API request:', JSON.stringify(membersData, null, 2));
-        
-        const membersResponse = await axios.post(
-          `${MEMBERS_API}/query`,
-          membersData,
-          {
-            headers: {
-              'Authorization': WIX_API_KEY,
-              'Content-Type': 'application/json',
-              'wix-site-id': WIX_SITE_ID
-            }
-          }
-        );
-        
-        console.log('[WixService] Members API response:', membersResponse.data);
-        
-        if (membersResponse.data.members && membersResponse.data.members.length > 0) {
-          // Log the first member to debug the structure
-          console.log('Found member structure:', JSON.stringify(membersResponse.data.members[0], null, 2));
-          
-          // Ensure each member has an _id property (following the memory about Member ID extraction)
-          const members = membersResponse.data.members.map(member => {
-            // If the member doesn't have an _id property but has an id property, use that
-            if (!member._id && member.id) {
-              member._id = member.id;
-            } else if (!member._id && member.memberId) {
-              member._id = member.memberId;
-            }
-            return member;
-          });
-          
-          results = members;
-          source = 'members';
-          console.log('Found members by Members API search');
-        }
-      } catch (membersErr) {
-        console.warn('Members API search failed:', membersErr.message);
-        // Continue to fallback approach
-      }
-      
-      // 2. If no matches from Members API, try Contacts API as fallback
-      if (!results.length) {
-        try {
-          // Build a comprehensive filter for Contacts API
-          const contactsFilters = [];
-          
-          // Add filters for each first name variation
-          firstNameVariations.forEach(nameVariation => {
-            contactsFilters.push({
-              filter: { fieldName: "info.name.first", operator: "contains", value: nameVariation }
-            });
-          });
-          
-          // Add last name filter
-          if (formattedLastName) {
-            contactsFilters.push({
-              filter: { fieldName: "info.name.last", operator: "contains", value: formattedLastName }
-            });
-          }
-          
-          // Add DOB filters if available
-          if (formattedDOB) {
-            contactsFilters.push({
-              filter: { fieldName: "extendedFields.dob", operator: "eq", value: formattedDOB }
-            });
-            contactsFilters.push({
-              filter: { fieldName: "extendedFields.birthdate", operator: "eq", value: formattedDOB }
-            });
-            contactsFilters.push({
-              filter: { fieldName: "extendedFields.dateOfBirth", operator: "eq", value: formattedDOB }
-            });
-            
-            // Also try with original DOB format
-            contactsFilters.push({
-              filter: { fieldName: "extendedFields.dob", operator: "eq", value: originalDOB }
-            });
-            contactsFilters.push({
-              filter: { fieldName: "extendedFields.birthdate", operator: "eq", value: originalDOB }
-            });
-            contactsFilters.push({
-              filter: { fieldName: "extendedFields.dateOfBirth", operator: "eq", value: originalDOB }
-            });
-          }
-          
-          // Try full name combinations
-          if (formattedFirstName && formattedLastName) {
-            const fullName = `${formattedFirstName} ${formattedLastName}`.trim();
-            contactsFilters.push({
-              filter: { fieldName: "info.name.full", operator: "contains", value: fullName }
-            });
-          }
-          
-          // Properly structure the contacts query according to Wix API requirements
-          const contactsData = {
-            // Direct structure without nesting under 'query'
-            filter: {
-              or: contactsFilters
-            },
-            paging: { limit: 10 },
-            fields: [
-              "info",
-              "customFields",
-              "extendedFields"
-            ]
-          };
-          
-          console.log('[WixService] Contacts API request:', JSON.stringify(contactsData, null, 2));
-          
-          const contactsResponse = await axios.post(
-            `${CONTACTS_API}/query`,
-            contactsData,
-            {
-              headers: {
-                'Authorization': WIX_API_KEY,
-                'Content-Type': 'application/json',
-                'wix-site-id': WIX_SITE_ID
-              }
-            }
-          );
-          
-          console.log('[WixService] Contacts API response:', contactsResponse.data);
-          
-          if (contactsResponse.data.contacts && contactsResponse.data.contacts.length > 0) {
-            results = contactsResponse.data.contacts;
-            source = 'contacts';
-            console.log('Found members by Contacts API search');
-          }
-        } catch (contactsErr) {
-          console.warn('Contacts API search failed:', contactsErr.message);
-          
-          // Last resort: try a simple free text search
-          try {
-            const fullName = `${formattedFirstName} ${formattedLastName}`.trim();
-            const simpleParams = {
-              search: { freeText: fullName },
-              fields: ['info', 'customFields', 'picture']
-            };
-            
-            console.log('[WixService] Simple search request:', JSON.stringify(simpleParams, null, 2));
-            
-            const simpleResponse = await axios.post(
-              `${CONTACTS_API}/search`,
-              simpleParams,
-              {
-                headers: {
-                  'Authorization': WIX_API_KEY,
-                  'Content-Type': 'application/json',
-                  'wix-site-id': WIX_SITE_ID
-                }
-              }
-            );
-            
-            console.log('[WixService] Simple search response:', simpleResponse.data);
-            if (simpleResponse.data.contacts && simpleResponse.data.contacts.length > 0) {
-              results = simpleResponse.data.contacts;
-              source = 'contacts';
-              console.log('Found members by simple text search');
-            }
-          } catch (simpleErr) {
-            console.warn('Simple search failed:', simpleErr.message);
-          }
-        }
-      }
-      
-      // Process results based on the source
-      if (source === 'members') {
-        // Extract member IDs from Members API response
-        return {
-          success: true,
-          members: results.map(member => {
-            // Log the full member object to help with debugging
-            console.log('Processing member:', JSON.stringify(member, null, 2));
-            
-            // Extract name from nickname or other available fields
-            let firstName = '';
-            let lastName = '';
-            
-            // Try to extract from profile.nickname if available
-            if (member.profile?.nickname) {
-              const nameParts = member.profile.nickname.split(' ');
-              if (nameParts.length >= 2) {
-                firstName = nameParts[0] || '';
-                lastName = nameParts.slice(1).join(' ') || '';
-              } else {
-                firstName = member.profile.nickname;
-              }
-            }
-            
-            // Fallback to other fields if available
-            firstName = firstName || member.profile?.firstName || member.contact?.firstName || '';
-            lastName = lastName || member.profile?.lastName || member.contact?.lastName || '';
-            
-            return {
-              id: member._id || member.id || member.memberId,
-              firstName,
-              lastName,
-              email: member.loginEmail || member.contact?.emails?.[0] || member.profile?.email || '',
-              phone: member.contact?.phones?.[0] || member.profile?.phone || '',
-              picture: member.profile?.photo?.url || '',
-              dateOfBirth: member.contact?.birthdate || member.extendedFields?.dob || member.extendedFields?.birthdate || '',
-              source: 'members',
-              nickname: member.profile?.nickname || ''
-            };
-          })
-        };
-      } else if (source === 'contacts') {
-        // Extract member IDs from Contacts API response
-        return {
-          success: true,
-          members: results.map(contact => {
-            // Log the full contact object to help with debugging
-            console.log('Processing contact:', JSON.stringify(contact, null, 2));
-            
-            // Extract member ID from various possible locations
-            const memberId = contact.memberInfo?.id || 
-                            contact.info?.memberId || 
-                            contact.info?.id || 
-                            contact.id;
-            
-            console.log(`Extracted member ID: ${memberId} from contact`);
-            
-            return {
-              id: memberId,
-              firstName: contact.info?.name?.first || '',
-              lastName: contact.info?.name?.last || '',
-              email: contact.primaryEmail?.email || contact.info?.emails?.[0]?.email || '',
-              phone: contact.primaryPhone?.phone || contact.info?.phones?.[0]?.phone || '',
-              picture: contact.picture?.image?.url || '',
-              dateOfBirth: contact.info?.birthdate || contact.customFields?.birthdate || contact.customFields?.dob || '',
-              source: 'contacts'
-            };
-          })
-        };
-      } else {
-        return {
-          success: false,
-          error: 'No members found matching the search criteria'
-        };
-      }
     } catch (err) {
-      console.error('Wix API error:', err);
+      console.error('[WixService] Error finding member:', err);
       return { 
         success: false, 
-        error: err.message,
-        details: err.response ? err.response.data : null
+        error: `Error finding member: ${err.message}`,
+        details: err.stack
       };
     }
   },

@@ -49,3 +49,6 @@ pids
 
 # Electron specific
 .electron-gyp/
+
+# Ignore-this-config.json
+ignore-this-config.json

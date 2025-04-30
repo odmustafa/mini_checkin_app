@@ -92,3 +92,8 @@ ipcMain.handle('wix-direct:pricing-plans', async (event, { memberId }) => {
 ipcMain.handle('wix-sdk:compat-test', async (event, { collectionId }) => {
   return await WixSdkCompatAdapter.testCompatAdapter(collectionId);
 });
+
+// Wix SDK Member Search handler
+ipcMain.handle('wix-sdk:search-member', async (event, { firstName, lastName, dateOfBirth }) => {
+  return await WixSdkAdapter.searchMember({ firstName, lastName, dateOfBirth });
+});

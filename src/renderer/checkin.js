@@ -179,161 +179,76 @@ async function processScan(scan) {
     
     showDiagnostics('Scan API Response', scan);
     
-    // Call Direct Wix API for member lookup
-    accountDiv.innerHTML = '<div class="loading">Looking up member in Wix...</div>';
+    // Step 2: Search for the member in Wix
+    try {
+      accountDiv.innerHTML = '<div class="loading">Looking up member in Wix...</div>';
+      
+      // Get the first name, last name, and DOB from the scan
+      const firstName = scan.FirstName || '';
+      const lastName = scan.LastName || '';
+      const dateOfBirth = scan.DateOfBirth || '';
+      
+      // Search by name and DOB using either SDK or Direct API based on selected mode
+      showDiagnostics('Member Search API Request', { firstName, lastName, dateOfBirth });
     
-    // Get the first name, last name, and DOB from the scan
-    const firstName = scan.FirstName || '';
-    const lastName = scan.LastName || '';
-    const dateOfBirth = scan.DateOfBirth || '';
+      // Use the Wix JavaScript SDK for member search as per Wix documentation
+      console.log('Using Wix SDK for member search');
+      const memberResult = await window.wixSdk.searchMember(
+        scan.FirstName,
+        scan.LastName,
+        scan.DateOfBirth
+      );
     
-    // Search by name and DOB using our new Direct API
-    showDiagnostics('Member Search API Request', { firstName, lastName, dateOfBirth });
-    const searchResult = await window.scanidAPI.findWixMember(firstName, lastName, dateOfBirth);
-    showDiagnostics('Member Search API Response', searchResult);
+      // Show the diagnostics panel with the raw API response
+      showDiagnostics('Wix SDK Response', memberResult);
+      
+      if (!memberResult.success) {
+        accountDiv.innerHTML = `<div class="error">Wix API Error: ${memberResult.error}</div>`;
+        return;
+      }
+      
+      if (!memberResult.results || memberResult.results.length === 0) {
+        accountDiv.innerHTML = '<div class="error">No matching Wix member found.</div>';
+        return;
+      }
     
-    if (!searchResult.success) {
-      accountDiv.innerHTML = `<div class="error">Wix API Error: ${searchResult.error}</div>`;
-      return;
-    }
-    
-    if (!searchResult.results || searchResult.results.length === 0) {
-      accountDiv.innerHTML = '<div class="error">No matching Wix member found.</div>';
-      return;
-    }
-    
-    // Show multiple matches if found
-    if (searchResult.results.length > 1) {
-      accountDiv.innerHTML = `
+      // Format the member data for display
+      let memberHtml = `
         <div class="member-info">
-          <h3>Multiple Matching Members Found</h3>
-          <div class="matches-list">
-            ${searchResult.results.map((member, index) => {
-              // Handle different data structures based on source (members vs contacts)
-              const name = searchResult.source === 'members' 
-                ? `${member.profile?.firstName || ''} ${member.profile?.lastName || ''}` 
-                : `${member.info?.name?.first || ''} ${member.info?.name?.last || ''}`;
-                
-              const email = searchResult.source === 'members'
-                ? member.profile?.email || 'No Email'
-                : member.info?.emails?.[0] || 'No Email';
-                
-              const memberId = searchResult.source === 'members'
-                ? member._id
-                : member.info?.memberId;
-                
-              return `
-                <div class="member-match">
-                  <div class="member-details">
-                    <p><strong>Name:</strong> ${name}</p>
-                    <p><strong>Email:</strong> ${email}</p>
-                    <p><strong>Member ID:</strong> ${memberId || 'N/A'}</p>
-                  </div>
-                  <div class="plans-container" id="plans-${memberId}"></div>
-                </div>
-              `;
-            }).join('')}
+          <h3>Member Found</h3>
+          <p class="member-source">Source: ${memberResult.source}</p>
+          <div class="member-details">
+            <div class="member-name">${memberResult.results[0].firstName} ${memberResult.results[0].lastName}</div>
+            <div class="member-id">ID: ${memberResult.results[0]._id || memberResult.results[0].id || 'N/A'}</div>
+            <div class="member-email">Email: ${memberResult.results[0].loginEmail || memberResult.results[0].email || 'N/A'}</div>
+            <div class="member-status">Status: ${memberResult.results[0].status || 'Unknown'}</div>
+            <div class="member-created">Created: ${new Date(memberResult.results[0]._createdDate || memberResult.results[0].createdDate).toLocaleString()}</div>
           </div>
+          <div class="member-actions">
+            <button class="view-plans-btn" data-member-id="${memberResult.results[0]._id || memberResult.results[0].id}">View Plans</button>
+          </div>
+          <div id="plans-${memberResult.results[0]._id || memberResult.results[0].id}" class="member-plans"></div>
         </div>
       `;
-    } else {
-      // Single match found
-      const member = searchResult.results[0];
       
-      // Log the member object to debug its structure
-      console.log('Member object:', member);
-      console.log('Member source:', searchResult.source);
+      accountDiv.innerHTML = memberHtml;
       
-      // Extract member ID based on the source
-      let memberId = null;
-      if (searchResult.source === 'members') {
-        memberId = member._id;
-        console.log('Member ID from members API:', memberId);
-      } else {
-        // Contact source
-        memberId = member.info?.memberId;
-        console.log('Member ID from contacts API:', memberId);
-        console.log('Full member object for debugging:', JSON.stringify(member, null, 2));
-      }
-      
-      // Get pricing plans for this member
-      let plansHtml = '';
-      if (memberId) {
-        console.log('Fetching pricing plans for memberId:', memberId);
-        const plansResult = await window.scanidAPI.getMemberPricingPlans(memberId);
-        console.log('Pricing plans result:', plansResult);
-        
-        if (plansResult.success && plansResult.plans && plansResult.plans.length > 0) {
-          plansHtml = `
-            <div class="pricing-plans">
-              <h4>Membership Plans</h4>
-              <button class="view-plans-btn" data-member-id="${memberId}">View Plans & Orders</button>
-              <ul class="plans-list">
-                ${plansResult.plans.map(plan => `
-                  <li class="plan-item ${plan.status === 'ACTIVE' ? 'active-plan' : 'inactive-plan'}">
-                    <div class="plan-name">${plan.planName || 'Unnamed Plan'}</div>
-                    <div class="plan-status">${plan.status || 'Unknown'}</div>
-                  </li>
-                `).join('')}
-              </ul>
-            </div>
-          `;
-        } else {
-          plansHtml = `<div class="no-plans">No active membership plans found</div>`;
-        }
-      }
-      
-      // Display member information based on the source
-      if (searchResult.source === 'members') {
-        accountDiv.innerHTML = `
-          <div class="member-info">
-            <h3>Member Found</h3>
-            <div class="member-card">
-              <div class="member-details">
-                <p><strong>Name:</strong> ${member.profile?.firstName || ''} ${member.profile?.lastName || ''}</p>
-                <p><strong>Email:</strong> ${member.profile?.email || 'No Email'}</p>
-                <p><strong>Status:</strong> ${member.membershipStatus?.status || 'Unknown'}</p>
-                <p><strong>Member ID:</strong> ${member._id || 'N/A'}</p>
-              </div>
-              ${plansHtml}
-            </div>
-          </div>
-        `;
-      } else {
-        // Contact source
-        accountDiv.innerHTML = `
-          <div class="member-info">
-            <h3>Contact Found</h3>
-            <div class="member-card">
-              <div class="member-details">
-                <p><strong>Name:</strong> ${member.info?.name?.first || ''} ${member.info?.name?.last || ''}</p>
-                <p><strong>Email:</strong> ${member.info?.emails?.[0] || 'No Email'}</p>
-                <p><strong>Status:</strong> ${member.info?.status || 'Unknown'}</p>
-                <p><strong>Member ID:</strong> ${member.info?.memberId || 'N/A'}</p>
-              </div>
-              ${plansHtml}
-            </div>
-          </div>
-        `;
-      }
-    }
-    
-    // Add event listeners for the View Plans buttons
-    setTimeout(() => {
-      const viewPlanButtons = document.querySelectorAll('.view-plans-btn');
-      viewPlanButtons.forEach(button => {
-        button.addEventListener('click', async function() {
-          const memberId = this.getAttribute('data-member-id');
-          const plansContainer = document.getElementById(`plans-${memberId}`);
-          
-          if (plansContainer) {
-            plansContainer.innerHTML = '<div class="loading">Loading plans and orders...</div>';
+      // Add event listeners for the View Plans buttons
+      setTimeout(() => {
+        // Set up the view plans buttons
+        document.querySelectorAll('.view-plans-btn').forEach(button => {
+          button.addEventListener('click', async function() {
+            const memberId = this.getAttribute('data-member-id');
+            const plansContainer = document.getElementById(`plans-${memberId}`);
             
-            // Get both pricing plans and orders in parallel
-            const [plansResult, ordersResult] = await Promise.all([
-              window.scanidAPI.getMemberPricingPlans(memberId),
-              window.scanidAPI.listPricingPlanOrders({ filter: { memberId } })
-            ]);
+            if (plansContainer) {
+              plansContainer.innerHTML = '<div class="loading">Loading plans and orders...</div>';
+              
+              // Always use direct API for plans and orders as SDK implementation is not yet available
+              const [plansResult, ordersResult] = await Promise.all([
+                window.scanidAPI.getMemberPricingPlans(memberId),
+                window.scanidAPI.listPricingPlanOrders({ filter: { memberId } })
+              ]);
             
             // Log the results for debugging
             console.log('Plans result:', plansResult);
@@ -399,6 +314,10 @@ async function processScan(scan) {
         });
       });
     }, 100);
+    } catch (err) {
+      console.error('Error processing member lookup:', err);
+      accountDiv.innerHTML = `<div class="error">Error: ${err.message}</div>`;
+    }
   } catch (err) {
     resultDiv.textContent = 'Error: ' + err.message;
   }
