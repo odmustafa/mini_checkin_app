@@ -354,6 +354,7 @@ class WixSdkAdapter {
       // We'll check each part of the first name against the contact's first name
       let firstNameScore = 0;
       let firstNameMatches = 0;
+      let hasPartialFirstNameMatch = false;
       
       if (contactFirstName && firstNameParts.length > 0) {
         // Split the contact's first name into parts for comparison
@@ -363,11 +364,29 @@ class WixSdkAdapter {
         
         // Check for exact matches in first name parts
         for (const searchPart of firstNameParts) {
+          let foundExactMatch = false;
+          
           for (const contactPart of contactFirstNameParts) {
+            // Check for exact match
             if (contactPart.toLowerCase() === searchPart.toLowerCase()) {
               firstNameMatches++;
-              matchDetails.push(`First name part match: "${searchPart}"`);
+              matchDetails.push(`First name part exact match: "${searchPart}"`);
+              foundExactMatch = true;
               break;
+            }
+          }
+          
+          // If no exact match found, check for partial matches
+          if (!foundExactMatch) {
+            for (const contactPart of contactFirstNameParts) {
+              // Check if contact part starts with search part or vice versa
+              if (contactPart.toLowerCase().startsWith(searchPart.toLowerCase()) || 
+                  searchPart.toLowerCase().startsWith(contactPart.toLowerCase())) {
+                hasPartialFirstNameMatch = true;
+                matchDetails.push(`First name part partial match: "${searchPart}" ~ "${contactPart}"`);
+                // We don't increment firstNameMatches here, but we'll account for this later
+                break;
+              }
             }
           }
         }
@@ -375,15 +394,23 @@ class WixSdkAdapter {
         // Calculate score based on percentage of matching parts
         const totalParts = Math.max(firstNameParts.length, contactFirstNameParts.length);
         firstNameScore = Math.round((firstNameMatches / totalParts) * 40);
+        
+        // Add bonus points for partial matches if there's at least one
+        if (hasPartialFirstNameMatch) {
+          firstNameScore += 10; // Add 10 points for having partial matches
+          firstNameScore = Math.min(firstNameScore, 40); // Cap at 40 points
+        }
       }
       
       // Calculate last name match score - up to 40 points
       let lastNameScore = 0;
+      let hasExactLastNameMatch = false;
       
       if (contactLastName && formattedLastName) {
         // Check for exact match
         if (contactLastName.toLowerCase() === formattedLastName.toLowerCase()) {
           lastNameScore = 40;
+          hasExactLastNameMatch = true;
           matchDetails.push(`Last name exact match: "${formattedLastName}"`);
         }
         // Check for partial match (starts with)
@@ -421,6 +448,23 @@ class WixSdkAdapter {
       
       // Calculate total confidence score
       confidenceScore = firstNameScore + lastNameScore + dobScore;
+      
+      // Apply special bonus for partial first name match with exact last name match
+      // This is a common scenario with nicknames or abbreviated first names
+      if (hasPartialFirstNameMatch && hasExactLastNameMatch) {
+        // Add a significant bonus (15 points) to prioritize these matches
+        confidenceScore += 15;
+        matchDetails.push('Bonus: Partial first name match with exact last name match');
+      }
+      // Also give a smaller bonus for partial first name match with partial last name match
+      else if (hasPartialFirstNameMatch && lastNameScore >= 30) {
+        // Add a moderate bonus (8 points) for partial matches on both names
+        confidenceScore += 8;
+        matchDetails.push('Bonus: Partial first name match with partial last name match');
+      }
+      
+      // Cap the total score at 100
+      confidenceScore = Math.min(confidenceScore, 100);
       
       // Add confidence data to the contact object
       return {
