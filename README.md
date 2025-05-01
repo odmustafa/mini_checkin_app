@@ -22,6 +22,11 @@ A check-in application that reads Scan-ID export data from a CSV file and integr
 - Enhanced contact search with first/last name filtering
 - Added test scripts to verify contact search functionality
 - Improved authentication with ApiKeyStrategy and account-level headers
+- Integrated Wix Pricing Plans Orders API using the official Wix JavaScript SDK
+- Added Debug panel for viewing raw API responses during troubleshooting
+- Added Help panel with restart option and support contact information
+- Fixed email display in contact list to properly show primary email addresses
+- Deprecated all direct API calls in favor of the official Wix JavaScript SDK
 
 ## New Account Activation Flow - Explained
 - Check [New Account Activation Flow](./New-Account-Activation-flow.md) for a detailed explanation of the New Account Activation flow (now with a neat flowchart!) 
