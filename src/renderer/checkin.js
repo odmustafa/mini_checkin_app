@@ -306,15 +306,15 @@ async function processScan(scan) {
             if (plansContainer) {
               plansContainer.innerHTML = '<div class="loading">Loading plans and orders...</div>';
               
-              // Use the Wix JavaScript SDK to get plans and orders
-              // For orders, we use buyerIds filter to get orders for this contact
-              const [plansResult, ordersResult] = await Promise.all([
-                window.scanidAPI.getMemberPricingPlans(memberId),
-                window.scanidAPI.listPricingPlanOrders({ buyerIds: [memberId] })
-              ]);
+              // Use the Wix JavaScript SDK to get orders for this contact
+              // The getMemberPricingPlans method now uses the SDK implementation
+              const plansResult = await window.scanidAPI.getMemberPricingPlans(memberId);
               
               // Store the response in the lastWixResponse for debugging
-              window.lastWixResponse = { plansResult, ordersResult };
+              window.lastWixResponse = { plansResult };
+              
+              // Set ordersResult to plansResult since they're now the same API call
+              const ordersResult = plansResult;
             
             // Log the results for debugging
             console.log('Plans result:', plansResult);
