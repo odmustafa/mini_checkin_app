@@ -5,7 +5,8 @@ contextBridge.exposeInMainWorld('scanidAPI', {
   getLatestScan: () => ipcRenderer.invoke('scanid:get-latest'),
   findWixMember: (firstName, lastName, dateOfBirth) => ipcRenderer.invoke('wix:find-member', { firstName, lastName, dateOfBirth }),
   searchMemberByNameOrDOB: (name, dob) => ipcRenderer.invoke('wix-direct:search-member', { name, dob }),
-  getMemberPricingPlans: (memberId) => ipcRenderer.invoke('wix-direct:pricing-plans', { memberId })
+  getMemberPricingPlans: (memberId) => ipcRenderer.invoke('wix-direct:pricing-plans', { memberId }),
+  listPricingPlanOrders: (filter) => ipcRenderer.invoke('wix-sdk:list-pricing-plan-orders', { filter })
 });
 
 // Expose Wix API Explorer functionality

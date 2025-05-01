@@ -585,15 +585,32 @@ class WixSdkAdapter {
         throw new Error('Member ID is required');
       }
       
-      // For now, return a message that this functionality needs to be implemented
-      // with the correct Wix SDK version that supports pricing plans
-      console.log('The pricing plans functionality requires additional SDK configuration');
+      // Import the pricing plans module
+      const { orders } = require('@wix/pricing-plans');
+      
+      // Add the pricing plans module to the client
+      if (!this.client.orders) {
+        console.log('Adding pricing-plans orders module to the client');
+        this.client.orders = orders;
+      }
+      
+      // Query for orders with the specified buyerId
+      console.log(`Querying orders for buyerId: ${memberId}`);
+      
+      // Use the managementListOrders method to filter by buyerId
+      const response = await this.client.orders.managementListOrders({
+        filter: {
+          buyerIds: [memberId]
+        }
+      });
+      
+      console.log(`Found ${response.orders?.length || 0} orders for member ${memberId}`);
       
       return {
-        success: false,
-        error: 'The pricing plans functionality is not available in the current SDK configuration',
-        message: 'This feature requires proper configuration with the Wix SDK. Please refer to the Wix documentation for pricing-plans integration.',
-        source: 'wix-sdk'
+        success: true,
+        plans: response.orders || [],
+        total: response.orders?.length || 0,
+        source: 'wix-pricing-plans'
       };
     } catch (err) {
       console.error('Error getting pricing plans with SDK:', err);
@@ -637,6 +654,49 @@ module.exports = {
       return await adapter.getMemberPricingPlans(memberId);
     } catch (err) {
       console.error('SDK Adapter getMemberPricingPlans error:', err);
+      return {
+        success: false,
+        error: err.message,
+        source: 'wix-sdk-adapter'
+      };
+    }
+  },
+  
+  /**
+   * List pricing plan orders filtered by buyerId
+   */
+  listPricingPlanOrders: async function(filter) {
+    try {
+      if (!adapter.initialized) {
+        await adapter.initialize();
+      }
+      
+      // Import the pricing plans module
+      const { orders } = require('@wix/pricing-plans');
+      
+      // Add the pricing plans module to the client if not already added
+      if (!adapter.client.orders) {
+        console.log('Adding pricing-plans orders module to the client');
+        adapter.client.orders = orders;
+      }
+      
+      console.log('Listing pricing plan orders with filter:', filter);
+      
+      // Use the managementListOrders method with the provided filter
+      const response = await adapter.client.orders.managementListOrders({
+        filter: filter
+      });
+      
+      console.log(`Found ${response.orders?.length || 0} orders matching filter`);
+      
+      return {
+        success: true,
+        orders: response.orders || [],
+        total: response.orders?.length || 0,
+        source: 'wix-pricing-plans'
+      };
+    } catch (err) {
+      console.error('Error listing pricing plan orders:', err);
       return {
         success: false,
         error: err.message,

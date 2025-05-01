@@ -90,6 +90,12 @@ ipcMain.handle('wix-sdk:query-all-members', async () => {
   return await adapter.queryAllMembers();
 });
 
+// Wix SDK List Pricing Plan Orders handler
+ipcMain.handle('wix-sdk:list-pricing-plan-orders', async (event, { filter }) => {
+  console.log('Received request to list pricing plan orders with filter:', filter);
+  return await WixSdkAdapter.listPricingPlanOrders(filter);
+});
+
 // App restart handler
 ipcMain.handle('app:restart', () => {
   app.relaunch();
