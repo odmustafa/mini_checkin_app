@@ -258,7 +258,31 @@ async function processScan(scan) {
         // Get contact details
         const contactName = `${contact.info?.name?.first || ''} ${contact.info?.name?.last || ''}`;
         const contactId = contact._id || contact.id || 'N/A';
-        const contactEmail = contact.info?.emails?.[0]?.email || 'N/A';
+        
+        // Access the email field based on Wix CRM Contacts API structure
+        let contactEmail = 'N/A';
+        
+        // Primary email address is stored in the primaryInfo.email field
+        if (contact.primaryInfo?.email) {
+          contactEmail = contact.primaryInfo.email;
+        }
+        // Check for email in the info.emails array
+        else if (contact.info?.emails && contact.info.emails.length > 0) {
+          // Find the primary email first
+          const primaryEmail = contact.info.emails.find(e => e.primary === true);
+          if (primaryEmail?.email) {
+            contactEmail = primaryEmail.email;
+          } 
+          // If no primary email, use the first one
+          else if (contact.info.emails[0]?.email) {
+            contactEmail = contact.info.emails[0].email;
+          }
+        }
+        // Check for loginEmail field (used for members)
+        else if (contact.loginEmail) {
+          contactEmail = contact.loginEmail;
+        }
+        
         const contactCreated = new Date(contact._createdDate || contact.createdDate).toLocaleString();
         
         // Format confidence details
