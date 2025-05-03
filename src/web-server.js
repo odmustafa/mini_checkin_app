@@ -569,9 +569,9 @@ app.post('/api/wix-direct/test', async (req, res) => {
   console.log('Request body:', req.body);
   try {
     const { endpoint } = req.body;
-    // Load the WixDirectApi module
-    const WixDirectApi = require('./services/WixDirectApi');
-    const result = await WixDirectApi.testDirectApi(endpoint);
+    // Load the WixSdkAdapter module
+    const WixSdkAdapter = require('./services/WixSdkAdapter');
+    const result = await WixSdkAdapter.testAdapter(endpoint);
     res.json(result);
   } catch (err) {
     console.error('Error testing Wix Direct API:', err.message);
