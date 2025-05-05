@@ -18,7 +18,10 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // Disable disk cache to avoid permission issues
+      webSecurity: true,
+      partition: 'nopersist'
     }
   });
   mainWindow.loadFile(path.join(__dirname, 'renderer/index.html'));
