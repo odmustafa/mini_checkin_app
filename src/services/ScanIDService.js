@@ -1,8 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 const { parse } = require('csv-parse/sync');
+const { execSync } = require('child_process');
+const os = require('os');
 
-const SCAN_ID_CSV_PATH = path.join(__dirname, '../../src/assets/scan-id-export.csv');
+// Use the local scan-id-export.csv file in the src/assets directory
+const SCAN_ID_CSV_PATH = path.join(__dirname, '../assets/scan-id-export.csv');
+const PYTHON_SORT_SCRIPT = path.join(__dirname, '../../src/sort_scan_id.py');
 
 module.exports = {
   getLatestScan: function() {
@@ -12,7 +16,27 @@ module.exports = {
         console.error('Scan-ID CSV file not found at:', SCAN_ID_CSV_PATH);
         return { error: 'Scan-ID CSV file not found' };
       }
-      const csvContent = fs.readFileSync(SCAN_ID_CSV_PATH, 'utf8');
+      
+      // Create a temporary file path for the sorted copy
+      const tempSortedFile = path.join(os.tmpdir(), `scan_id_sorted_${Date.now()}.csv`);
+      
+      // Run the Python script to create a sorted copy of the CSV file
+      console.log('Creating sorted copy of CSV file...');
+      let sortedFilePath = null;
+      
+      try {
+        // Call the Python script to create a sorted copy
+        const output = execSync(`python "${PYTHON_SORT_SCRIPT}" "${SCAN_ID_CSV_PATH}" "${tempSortedFile}"`, { encoding: 'utf8' });
+        console.log(output);
+        sortedFilePath = tempSortedFile;
+      } catch (sortError) {
+        console.error('Error creating sorted copy:', sortError.message);
+        // If sorting fails, use the original file
+        sortedFilePath = SCAN_ID_CSV_PATH;
+      }
+      
+      // Read from the sorted file if available, otherwise from the original
+      const csvContent = fs.readFileSync(sortedFilePath, 'utf8');
       console.log('CSV content loaded, parsing...');
       // Parse with standard comma delimiter
       const records = parse(csvContent, { 

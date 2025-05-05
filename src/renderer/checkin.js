@@ -193,12 +193,17 @@ async function processScan(scan) {
     
       // Use the Wix JavaScript SDK for member search as per Wix documentation
       console.log('Using Wix SDK for member search');
+      // Make sure we have valid search parameters to avoid undefined values
+      const searchParams = {
+        firstName: scan.FirstName || '',
+        lastName: scan.LastName || '',
+        dateOfBirth: scan.DateOfBirth || ''
+      };
+      
+      console.log('Search parameters:', searchParams);
+      
       // Pass parameters as an object to match the expected format in WixSdkAdapter
-      const memberResult = await window.wixSdk.searchMember({
-        firstName: scan.FirstName,
-        lastName: scan.LastName,
-        dateOfBirth: scan.DateOfBirth
-      });
+      const memberResult = await window.wixSdk.searchMember(searchParams);
     
       // Display the query details used for the search
       if (memberResult.queryDetails) {
@@ -339,67 +344,163 @@ async function processScan(scan) {
               
               // Set ordersResult to plansResult since they're now the same API call
               const ordersResult = plansResult;
-            
-            // Log the results for debugging
-            console.log('Plans result:', plansResult);
-            console.log('Orders result:', ordersResult);
-            
-            // Build the HTML for plans
-            let plansHtml = '';
-            if (plansResult.success && plansResult.plans && plansResult.plans.length > 0) {
+              
+              // Show the raw response in the diagnostics panel for debugging
+              if (typeof showDiagnostics === 'function') {
+                showDiagnostics('Wix Pricing Plans Response', plansResult);
+              }
+              
+              // Log the results for debugging
+              console.log('Plans result:', plansResult);
+              console.log('Orders result:', ordersResult);
+              
+              // Build the HTML for plans
+              let plansHtml = '';
+              if (plansResult.success && plansResult.plans && plansResult.plans.length > 0) {
+              // Filter for active plans to show at the top
+              const activePlans = plansResult.plans.filter(plan => plan.status === 'ACTIVE');
+              const inactivePlans = plansResult.plans.filter(plan => plan.status !== 'ACTIVE');
+              const sortedPlans = [...activePlans, ...inactivePlans];
+              
               plansHtml = `
                 <div class="pricing-plans">
-                  <h4>Current Membership Plans</h4>
+                  <h4>Membership Plans (${plansResult.plans.length})</h4>
                   <ul class="plans-list">
-                    ${plansResult.plans.map(plan => `
-                      <li class="plan-item ${plan.status === 'ACTIVE' ? 'active-plan' : 'inactive-plan'}">
-                        <div class="plan-name">${plan.planName || 'Unnamed Plan'}</div>
-                        <div class="plan-details">
-                          <span class="plan-status">${plan.status || 'Unknown'}</span>
-                          ${plan.validFrom ? `<span class="plan-dates">From: ${new Date(plan.validFrom).toLocaleDateString()}</span>` : ''}
-                          ${plan.expiresAt ? `<span class="plan-dates">To: ${new Date(plan.expiresAt).toLocaleDateString()}</span>` : ''}
-                        </div>
-                      </li>
-                    `).join('')}
+                    ${sortedPlans.map(plan => {
+                      // Format price if available
+                      const priceDisplay = plan.price ? 
+                        `${plan.price} ${plan.currency || ''}` : 'Free';
+                      
+                      // Determine plan status class and label
+                      let statusClass = 'inactive-plan';
+                      let statusLabel = plan.status || 'Unknown';
+                      
+                      if (plan.status === 'ACTIVE') {
+                        statusClass = 'active-plan';
+                        statusLabel = 'ACTIVE';
+                      } else if (plan.status === 'CANCELED') {
+                        statusLabel = 'CANCELED';
+                      } else if (plan.status === 'PENDING') {
+                        statusClass = 'pending-plan';
+                        statusLabel = 'PENDING';
+                      } else if (plan.status === 'PAUSED') {
+                        statusClass = 'paused-plan';
+                        statusLabel = 'PAUSED';
+                      }
+                      
+                      // Format dates
+                      const startDate = plan.validFrom ? 
+                        new Date(plan.validFrom).toLocaleDateString() : 'N/A';
+                      const endDate = plan.expiresAt ? 
+                        new Date(plan.expiresAt).toLocaleDateString() : 'No expiration';
+                      
+                      // Calculate if plan is expired
+                      const isExpired = plan.expiresAt && new Date(plan.expiresAt) < new Date();
+                      if (isExpired && statusClass !== 'active-plan') {
+                        statusClass = 'expired-plan';
+                        statusLabel = 'EXPIRED';
+                      }
+                      
+                      // Format recurring information
+                      const recurringInfo = plan.isRecurring ? 
+                        `<div class="plan-recurring">Recurring: Yes</div>` : '';
+                      
+                      return `
+                        <li class="plan-item ${statusClass}">
+                          <div class="plan-header">
+                            <div class="plan-name">${plan.planName || 'Unnamed Plan'}</div>
+                            <div class="plan-status">${statusLabel}</div>
+                          </div>
+                          <div class="plan-details">
+                            <div class="plan-price">Price: ${priceDisplay}</div>
+                            <div class="plan-dates">Start: ${startDate}</div>
+                            <div class="plan-dates">End: ${endDate}</div>
+                            ${recurringInfo}
+                            ${plan.orderType ? `<div class="plan-type">Type: ${plan.orderType}</div>` : ''}
+                            ${plan.paymentStatus ? `<div class="payment-status">Payment: ${plan.paymentStatus}</div>` : ''}
+                          </div>
+                        </li>
+                      `;
+                    }).join('')}
                   </ul>
                 </div>
               `;
             } else {
-              plansHtml = `<div class="no-plans">No active membership plans found</div>`;
+              plansHtml = `<div class="no-plans">No membership plans found</div>`;
             }
             
-            // Build the HTML for orders
-            let ordersHtml = '';
-            if (ordersResult.success && ordersResult.orders && ordersResult.orders.length > 0) {
+              // Since we're already showing plans in a detailed way, we can simplify the orders section
+              // or focus on different aspects like payment history
+              let ordersHtml = '';
+              if (ordersResult.success && ordersResult.orders && ordersResult.orders.length > 0) {
+              // Sort orders by creation date (newest first)
+              const sortedOrders = [...ordersResult.orders].sort((a, b) => {
+                return new Date(b.createdDate || 0) - new Date(a.createdDate || 0);
+              });
+              
               ordersHtml = `
                 <div class="pricing-orders">
-                  <h4>Order History</h4>
+                  <h4>Payment History</h4>
                   <ul class="orders-list">
-                    ${ordersResult.orders.map(order => `
-                      <li class="order-item">
-                        <div class="order-name">${order.planName || 'Unnamed Order'}</div>
-                        <div class="order-details">
-                          <span class="order-status">${order.status || 'Unknown'}</span>
-                          <span class="order-id">Order ID: ${order._id || 'N/A'}</span>
-                          ${order.createdDate ? `<span class="order-dates">Created: ${new Date(order.createdDate).toLocaleDateString()}</span>` : ''}
-                          ${order.endDate ? `<span class="order-dates">Ends: ${new Date(order.endDate).toLocaleDateString()}</span>` : ''}
-                        </div>
-                      </li>
-                    `).join('')}
+                    ${sortedOrders.map(order => {
+                      // Format payment details
+                      let paymentInfo = 'No payment details';
+                      if (order.paymentDetails) {
+                        const paymentMethod = order.paymentDetails.paymentMethod || 'Unknown method';
+                        const paymentAmount = order.pricing?.price ? 
+                          `${order.pricing.price} ${order.pricing.currency || ''}` : 'Free';
+                        paymentInfo = `${paymentMethod} - ${paymentAmount}`;
+                      }
+                      
+                      // Format dates in a more readable way
+                      const createdDate = order.createdDate ? 
+                        new Date(order.createdDate).toLocaleString() : 'Unknown date';
+                      
+                      // Get payment status with appropriate styling
+                      let paymentStatusClass = 'payment-unknown';
+                      if (order.paymentStatus === 'PAID') {
+                        paymentStatusClass = 'payment-paid';
+                      } else if (order.paymentStatus === 'PENDING') {
+                        paymentStatusClass = 'payment-pending';
+                      } else if (order.paymentStatus === 'REFUNDED') {
+                        paymentStatusClass = 'payment-refunded';
+                      } else if (order.paymentStatus === 'FAILED') {
+                        paymentStatusClass = 'payment-failed';
+                      }
+                      
+                      return `
+                        <li class="order-item">
+                          <div class="order-header">
+                            <div class="order-name">${order.planName || 'Unnamed Order'}</div>
+                            <div class="order-date">${createdDate}</div>
+                          </div>
+                          <div class="order-details">
+                            <div class="order-payment ${paymentStatusClass}">
+                              <span class="payment-status">${order.paymentStatus || 'Unknown'}</span>
+                              <span class="payment-info">${paymentInfo}</span>
+                            </div>
+                            <div class="order-meta">
+                              <span class="order-id">ID: ${order._id || order.id || 'N/A'}</span>
+                              ${order.orderType ? `<span class="order-type">Type: ${order.orderType}</span>` : ''}
+                            </div>
+                          </div>
+                        </li>
+                      `;
+                    }).join('')}
                   </ul>
                 </div>
               `;
             } else {
-              ordersHtml = `<div class="no-orders">No order history found</div>`;
+              ordersHtml = `<div class="no-orders">No payment history found</div>`;
             }
             
-            // Combine plans and orders HTML
-            plansContainer.innerHTML = `
-              <div class="member-subscription-info">
-                ${plansHtml}
-                ${ordersHtml}
-              </div>
-            `;
+              // Combine plans and orders HTML
+              plansContainer.innerHTML = `
+                <div class="member-subscription-info">
+                  ${plansHtml}
+                  ${ordersHtml}
+                </div>
+              `;
           }
         });
       });

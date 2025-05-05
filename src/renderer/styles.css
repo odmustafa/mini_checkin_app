@@ -391,34 +391,162 @@ pre {
 .order-item {
   background: #f0f7ff;
   border-left: 3px solid #3498db;
+  margin-bottom: 10px;
+}
+
+.pending-plan {
+  background: #fff8e1;
+  border-left: 3px solid #f39c12;
+}
+
+.paused-plan {
+  background: #e3f2fd;
+  border-left: 3px solid #2196f3;
+}
+
+.expired-plan {
+  background: #ffebee;
+  border-left: 3px solid #e57373;
+}
+
+.plan-header,
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
 }
 
 .plan-name,
 .order-name {
   font-weight: bold;
-  margin-bottom: 5px;
-  font-size: 14px;
+  font-size: 15px;
+}
+
+.plan-status,
+.order-status,
+.payment-status {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: bold;
+  background: #eee;
+  color: #555;
+}
+
+.active-plan .plan-status {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.inactive-plan .plan-status,
+.expired-plan .plan-status {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.pending-plan .plan-status {
+  background: #fff8e1;
+  color: #f57f17;
+}
+
+.paused-plan .plan-status {
+  background: #e3f2fd;
+  color: #0d47a1;
+}
+
+.order-payment {
+  margin: 8px 0;
+  padding: 8px;
+  border-radius: 4px;
+  background: #f5f5f5;
+}
+
+.payment-paid {
+  background: #e8f5e9;
+}
+
+.payment-pending {
+  background: #fff8e1;
+}
+
+.payment-failed {
+  background: #ffebee;
+}
+
+.payment-refunded {
+  background: #e0f7fa;
+}
+
+.payment-status {
+  margin-right: 8px;
+}
+
+.payment-paid .payment-status {
+  background: #c8e6c9;
+  color: #2e7d32;
+}
+
+.payment-pending .payment-status {
+  background: #ffecb3;
+  color: #f57f17;
+}
+
+.payment-failed .payment-status {
+  background: #ffcdd2;
+  color: #c62828;
+}
+
+.payment-refunded .payment-status {
+  background: #b2ebf2;
+  color: #0097a7;
+}
+
+.payment-info {
+  display: block;
+  margin-top: 5px;
+  font-size: 13px;
+  color: #555;
 }
 
 .plan-details,
 .order-details {
+  font-size: 14px;
+  color: #555;
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  font-size: 13px;
+  flex-direction: column;
+  gap: 5px;
 }
 
-.plan-status,
-.order-status {
-  background: #2ecc71;
-  color: white;
+.order-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: #777;
+  margin-top: 8px;
+}
+
+.order-date {
+  font-size: 13px;
+  color: #777;
+}
+
+.plan-price {
+  font-weight: bold;
+  color: #333;
+}
+
+.plan-recurring {
+  display: inline-block;
+  background: #e3f2fd;
+  color: #1565c0;
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 12px;
-}
-
-.inactive-plan .plan-status {
-  background: #95a5a6;
+  font-weight: bold;
 }
 
 .plan-dates,

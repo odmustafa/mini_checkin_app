@@ -8,7 +8,9 @@
  */
 const fs = require('fs');
 const path = require('path');
-const WixSdkAdapter = require('./WixSdkAdapter');
+// Import the adapter module but don't call any methods yet
+const wixSdkAdapterModule = require('./WixSdkAdapter');
+const WixSdkAdapter = wixSdkAdapterModule.adapter;
 
 // Read config from file (for security, do NOT hardcode in source)
 const CONFIG_PATH = path.join(__dirname, '../../wix.config.json');

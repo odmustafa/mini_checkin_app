@@ -42,7 +42,7 @@ server.setMaxListeners(20);
 const io = socketIo(server);
 
 // Initialize the ScanID watcher
-const scanIDPath = path.join(__dirname, 'assets/scan-id-export.csv');
+const scanIDPath = "C:\\Users\\tmeyn\\OneDrive\\Documents\\BCR\\Scan-ID\\20250421_0442.csv";
 const scanIDWatcher = new ScanIDWatcher(scanIDPath);
 
 // Add request logging

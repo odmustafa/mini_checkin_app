@@ -594,22 +594,54 @@ class WixSdkAdapter {
         this.client.orders = orders;
       }
       
+      // Log the request details for debugging
+      console.log(`Received request to list pricing plan orders with filter: { buyerIds: [${memberId}] }`);
+      
       // Query for orders with the specified buyerId
-      console.log(`Querying orders for buyerId: ${memberId}`);
+      console.log(`Listing pricing plan orders with filter: { buyerIds: [${memberId}] }`);
       
       // Use the managementListOrders method to filter by buyerId
+      // This follows the Wix JavaScript SDK documentation for pricing plans orders
       const response = await this.client.orders.managementListOrders({
         filter: {
           buyerIds: [memberId]
-        }
+        },
+        // Sort by created date in descending order (newest first)
+        sort: {
+          fieldName: 'createdDate',
+          order: 'DESC'
+        },
+        // Include additional order details
+        includePaymentDetails: true
       });
       
-      console.log(`Found ${response.orders?.length || 0} orders for member ${memberId}`);
+      // Log the response for debugging
+      console.log(`Found ${response.orders?.length || 0} orders matching filter`);
+      
+      // Process orders to extract plan details
+      const processedOrders = (response.orders || []).map(order => {
+        // Extract plan information
+        return {
+          ...order,
+          planName: order.planName || 'Unnamed Plan',
+          status: order.status || 'UNKNOWN',
+          validFrom: order.startDate || order.createdDate,
+          expiresAt: order.endDate,
+          price: order.pricing?.price,
+          currency: order.pricing?.currency,
+          paymentStatus: order.paymentStatus || 'UNKNOWN',
+          orderType: order.orderType || 'UNKNOWN',
+          isRecurring: !!order.recurring,
+          recurringDetails: order.recurring,
+          paymentDetails: order.paymentDetails
+        };
+      });
       
       return {
         success: true,
-        plans: response.orders || [],
-        total: response.orders?.length || 0,
+        plans: processedOrders,
+        orders: processedOrders, // For backward compatibility
+        total: processedOrders.length,
         source: 'wix-pricing-plans'
       };
     } catch (err) {
@@ -625,7 +657,7 @@ class WixSdkAdapter {
   }
 }
 
-// Export a singleton instance
+// Create a singleton instance
 const adapter = new WixSdkAdapter();
 
 module.exports = {
@@ -819,8 +851,5 @@ module.exports = {
         stack: err.stack
       };
     }
-  },
-  
-  // Export the adapter instance for direct use
-  adapter
+  }
 };
