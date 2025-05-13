@@ -159,12 +159,22 @@ async function processScan(scan) {
     const scanTime = scan.ScanTime ? new Date(scan.ScanTime.split(' ')[0].replace(/\//g, '-')).toLocaleString() : 'N/A';
     const expires = scan.IDExpiration ? new Date(scan.IDExpiration.replace(/-/g, '/')).toLocaleDateString() : 'N/A';
     
+    // Check if photo path exists and create appropriate HTML
+    let photoHtml = '';
+    if (scan.PhotoPath && scan.PhotoPath.trim() !== '') {
+      // Use actual photo from the file path with click-to-expand functionality
+      photoHtml = `<img src="file://${scan.PhotoPath}" alt="ID Photo" class="id-photo" data-photo-path="file://${scan.PhotoPath}" onerror="this.onerror=null; this.src=''; this.parentNode.innerHTML='<div class=\'photo-placeholder\'>Image not found</div>';">`;
+    } else {
+      // Fallback to placeholder
+      photoHtml = `<div class="photo-placeholder">No Photo</div>`;
+    }
+    
     resultDiv.innerHTML = `
       <div class="scan-card">
         <h3>ID Scan Result</h3>
         <div class="scan-details">
           <div class="scan-photo">
-            <div class="photo-placeholder">ID Photo</div>
+            ${photoHtml}
           </div>
           <div class="scan-info">
             <p><strong>Full Name:</strong> ${scan.FullName || 'N/A'}</p>
@@ -620,3 +630,57 @@ processScan.showDiagnostics = function(title, data) {
     lastWixResponse = data;
   }
 };
+
+// Function to set up photo expansion functionality
+function setupPhotoExpansion() {
+  // Remove any existing expanded photo container
+  const existingExpanded = document.querySelector('.id-photo-expanded');
+  if (existingExpanded) {
+    document.body.removeChild(existingExpanded);
+  }
+  
+  // Add click event listeners to all ID photos
+  document.querySelectorAll('.id-photo').forEach(photo => {
+    // Remove existing listeners to prevent duplicates
+    photo.removeEventListener('click', expandPhoto);
+    // Add click event listener
+    photo.addEventListener('click', expandPhoto);
+  });
+}
+
+// Function to handle photo expansion
+function expandPhoto(event) {
+  const photoPath = event.target.getAttribute('data-photo-path');
+  
+  // Create expanded view container
+  const expandedContainer = document.createElement('div');
+  expandedContainer.className = 'id-photo-expanded';
+  
+  // Create image element
+  const expandedImg = document.createElement('img');
+  expandedImg.src = photoPath;
+  expandedImg.alt = 'Expanded ID Photo';
+  
+  // Add image to container
+  expandedContainer.appendChild(expandedImg);
+  
+  // Add click event to close on click
+  expandedContainer.addEventListener('click', () => {
+    document.body.removeChild(expandedContainer);
+  });
+  
+  // Add to body
+  document.body.appendChild(expandedContainer);
+}
+
+// Call setupPhotoExpansion after processing a scan
+document.addEventListener('DOMContentLoaded', () => {
+  // Patch the processScan function to add photo expansion functionality
+  const originalProcessScan = window.processScan || processScan;
+  window.processScan = async function() {
+    const result = await originalProcessScan.apply(this, arguments);
+    // Setup photo expansion after scan is processed
+    setTimeout(setupPhotoExpansion, 100);
+    return result;
+  };
+});

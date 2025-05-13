@@ -37,6 +37,28 @@ ipcMain.handle('scanid:get-latest', async () => {
   return await ScanIDService.getLatestScan();
 });
 
+// IPC: Get watch status
+ipcMain.handle('scanid:get-watch-status', async () => {
+  return ScanIDService.getWatchStatus();
+});
+
+// IPC: Start watching for new scans
+ipcMain.handle('scanid:start-watching', async () => {
+  return ScanIDService.startWatching();
+});
+
+// IPC: Stop watching for new scans
+ipcMain.handle('scanid:stop-watching', async () => {
+  return ScanIDService.stopWatching();
+});
+
+// Set up watch callback to forward events to the renderer process
+ScanIDService.registerWatchCallback((eventType, data) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('scanid:watch-event', eventType, data);
+  }
+});
+
 // IPC: Lookup Wix member by Scan-ID data
 ipcMain.handle('wix:find-member', async (event, { firstName, lastName, dateOfBirth }) => {
   return await WixService.findMember({ firstName, lastName, dateOfBirth });

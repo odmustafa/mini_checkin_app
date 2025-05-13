@@ -5,10 +5,135 @@ const { execSync } = require('child_process');
 const os = require('os');
 
 // Use the local scan-id-export.csv file in the src/assets directory
-const SCAN_ID_CSV_PATH = path.join(__dirname, '../assets/scan-id-export.csv');
+const SCAN_ID_CSV_PATH = 'C:\\Users\\tmeyn\\OneDrive\\Documents\\BCR\\Scan-ID\\20250421_0442.csv';
 const PYTHON_SORT_SCRIPT = path.join(__dirname, '../../src/sort_scan_id.py');
 
+// Track the watching state and last scan time
+let isWatching = false;
+let watchInterval = null;
+let lastScanTime = null;
+let lastScanData = null;
+let watchCallbacks = [];
+
 module.exports = {
+  getWatchStatus: function() {
+    return { success: true, watching: isWatching };
+  },
+  
+  startWatching: function() {
+    if (isWatching) {
+      return { success: true, watching: true, message: 'Already watching' };
+    }
+    
+    try {
+      // Get the current scan data to establish a baseline
+      const currentScan = this.getLatestScan();
+      if (!currentScan.error) {
+        lastScanData = currentScan;
+        lastScanTime = currentScan.ScanTime ? new Date(currentScan.ScanTime.split(' ')[0].replace(/\//g, '-')) : new Date();
+      }
+      
+      // Set up the interval to check for new scans
+      watchInterval = setInterval(() => {
+        this.checkForNewScans();
+      }, 5000); // Check every 5 seconds
+      
+      isWatching = true;
+      
+      // Notify all callbacks about the status change
+      this.notifyCallbacks('status', { watching: true });
+      
+      return { success: true, watching: true };
+    } catch (err) {
+      console.error('Error starting watch:', err);
+      return { success: false, error: err.message };
+    }
+  },
+  
+  stopWatching: function() {
+    if (!isWatching) {
+      return { success: true, watching: false, message: 'Not watching' };
+    }
+    
+    try {
+      // Clear the interval
+      if (watchInterval) {
+        clearInterval(watchInterval);
+        watchInterval = null;
+      }
+      
+      isWatching = false;
+      
+      // Notify all callbacks about the status change
+      this.notifyCallbacks('status', { watching: false });
+      
+      return { success: true, watching: false };
+    } catch (err) {
+      console.error('Error stopping watch:', err);
+      return { success: false, error: err.message };
+    }
+  },
+  
+  registerWatchCallback: function(callback) {
+    // Add the callback to the list
+    watchCallbacks.push(callback);
+    
+    // Return a function to unregister the callback
+    return () => {
+      const index = watchCallbacks.indexOf(callback);
+      if (index !== -1) {
+        watchCallbacks.splice(index, 1);
+      }
+    };
+  },
+  
+  notifyCallbacks: function(eventType, data) {
+    // Call all registered callbacks with the event type and data
+    watchCallbacks.forEach(callback => {
+      try {
+        callback(eventType, data);
+      } catch (err) {
+        console.error('Error in watch callback:', err);
+      }
+    });
+  },
+  
+  checkForNewScans: function() {
+    try {
+      // Get the latest scan
+      const latestScan = this.getLatestScan();
+      
+      // If there was an error getting the scan, notify callbacks
+      if (latestScan.error) {
+        this.notifyCallbacks('error', { error: latestScan.error });
+        return;
+      }
+      
+      // If we don't have a last scan time, set it and return
+      if (!lastScanTime) {
+        lastScanData = latestScan;
+        lastScanTime = latestScan.ScanTime ? new Date(latestScan.ScanTime.split(' ')[0].replace(/\//g, '-')) : new Date();
+        return;
+      }
+      
+      // Parse the scan time from the latest scan
+      const scanTime = latestScan.ScanTime ? new Date(latestScan.ScanTime.split(' ')[0].replace(/\//g, '-')) : new Date();
+      
+      // If the scan time is newer than the last scan time, notify callbacks
+      if (scanTime > lastScanTime) {
+        console.log('New scan detected:', latestScan.FullName);
+        lastScanTime = scanTime;
+        lastScanData = latestScan;
+        
+        // Notify all callbacks about the new scan
+        this.notifyCallbacks('newscan', latestScan);
+      }
+    } catch (err) {
+      console.error('Error checking for new scans:', err);
+      this.notifyCallbacks('error', { error: err.message });
+    }
+  },
+  
   getLatestScan: function() {
     try {
       console.log('Looking for Scan-ID CSV at:', SCAN_ID_CSV_PATH);

@@ -6,7 +6,21 @@ contextBridge.exposeInMainWorld('scanidAPI', {
   findWixMember: (firstName, lastName, dateOfBirth) => ipcRenderer.invoke('wix:find-member', { firstName, lastName, dateOfBirth }),
   searchMemberByNameOrDOB: (name, dob) => ipcRenderer.invoke('wix-direct:search-member', { name, dob }),
   getMemberPricingPlans: (memberId) => ipcRenderer.invoke('wix-sdk:list-pricing-plan-orders', { filter: { buyerIds: [memberId] } }),
-  listPricingPlanOrders: (filter) => ipcRenderer.invoke('wix-sdk:list-pricing-plan-orders', { filter })
+  listPricingPlanOrders: (filter) => ipcRenderer.invoke('wix-sdk:list-pricing-plan-orders', { filter }),
+  // Add watch functionality
+  getWatchStatus: () => ipcRenderer.invoke('scanid:get-watch-status'),
+  startWatching: () => ipcRenderer.invoke('scanid:start-watching'),
+  stopWatching: () => ipcRenderer.invoke('scanid:stop-watching'),
+  onScanWatchEvent: (callback) => {
+    // Create a listener for scan watch events
+    const listener = (event, eventType, data) => callback(eventType, data);
+    ipcRenderer.on('scanid:watch-event', listener);
+    
+    // Return a function to remove the listener
+    return () => {
+      ipcRenderer.removeListener('scanid:watch-event', listener);
+    };
+  }
 });
 
 // Expose Wix API Explorer functionality

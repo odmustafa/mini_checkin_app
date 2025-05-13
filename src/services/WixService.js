@@ -11,6 +11,8 @@ const path = require('path');
 // Import the adapter module but don't call any methods yet
 const wixSdkAdapterModule = require('./WixSdkAdapter');
 const WixSdkAdapter = wixSdkAdapterModule.adapter;
+// Import the Pricing Plans service
+const WixPricingPlansService = require('./WixPricingPlansService');
 
 // Read config from file (for security, do NOT hardcode in source)
 const CONFIG_PATH = path.join(__dirname, '../../wix.config.json');
@@ -138,13 +140,10 @@ module.exports = {
       console.log('[WixService] Listing pricing plan orders with options:', JSON.stringify(options, null, 2));
       logOperation('listOrders', options);
       
-      // This functionality would need to be implemented in the WixSdkAdapter
-      // For now, return a message indicating this needs to be implemented using the SDK
-      return {
-        success: false,
-        error: 'This functionality needs to be implemented using the Wix SDK',
-        source: 'wix-service'
-      };
+      // Use the WixPricingPlansService to list orders
+      const result = await WixPricingPlansService.listOrders(options);
+      
+      return result;
     } catch (err) {
       console.error('[WixService] Orders error:', err);
       
