@@ -46,12 +46,12 @@ A check-in application that reads Scan-ID export data from a CSV file and integr
 
 ## Running the App
 
-### As a Desktop App (Electron)
+### As a Desktop App (Electron) - PREFERRED METHOD
 ```
 npm start
 ```
 
-### As a Web App
+### As a Web App - Sometimes a bit buggy, but not our focus
 ```
 npm run web
 ```
