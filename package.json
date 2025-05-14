@@ -12,7 +12,7 @@
     "@wix/crm": "^1.0.423",
     "@wix/data": "^1.0.222",
     "@wix/members": "^1.0.270",
-    "@wix/pricing-plans": "^1.0.137",
+    "@wix/pricing-plans": "^1.0.176",
     "@wix/sdk": "^1.15.18",
     "axios": "^1.6.7",
     "csv-parse": "^5.5.4",

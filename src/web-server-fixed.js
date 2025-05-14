@@ -112,9 +112,11 @@ app.get('/api/scanid/latest', async (req, res) => {
       FullName: latestRecord['FULL NAME'],
       DateOfBirth: latestRecord['BIRTHDATE'],
       Age: latestRecord['AGE'],
-      IDNumber: latestRecord['DRV LC NO'],
-      IDExpiration: latestRecord['EXPIRES ON'],
-      IDIssued: latestRecord['ISSUED ON'],
+      Gender: latestRecord['GENDER'],
+      Address: latestRecord['ADDRESS'],
+      City: latestRecord['CITY'],
+      State: latestRecord['STATE'],
+      ZipCode: latestRecord['ZIPCODE'],
       ScanTime: latestRecord['CREATED'],
       PhotoPath: latestRecord['Image1']
     };
@@ -153,26 +155,14 @@ app.post('/api/wix/search-member', async (req, res) => {
       // Split the name into parts and search for each part individually
       const nameParts = name.split(' ').filter(part => part.trim().length > 0);
       
-      // Create a more flexible search by looking for any name part in any name field
+      // For each name part, try first name and last name
       nameParts.forEach(part => {
-        // Try to match the part against first name
         filters.push({
           filter: { fieldName: "profile.firstName", operator: "contains", value: part }
         });
         
-        // Try to match the part against last name
         filters.push({
           filter: { fieldName: "profile.lastName", operator: "contains", value: part }
-        });
-        
-        // Try to match against the full name field if it exists
-        filters.push({
-          filter: { fieldName: "profile.name", operator: "contains", value: part }
-        });
-        
-        // Try to match against any custom name fields that might exist
-        filters.push({
-          filter: { fieldName: "extendedFields.fullName", operator: "contains", value: part }
         });
       });
       
@@ -193,32 +183,26 @@ app.post('/api/wix/search-member', async (req, res) => {
         }
       }
       
-      // Try both standard and extended fields for DOB
-      filters.push({
-        filter: { fieldName: "extendedFields.dob", operator: "eq", value: formattedDob }
-      });
-      filters.push({
-        filter: { fieldName: "extendedFields.birthdate", operator: "eq", value: formattedDob }
-      });
+      // Try to find by DOB in extended fields
       filters.push({
         filter: { fieldName: "extendedFields.dateOfBirth", operator: "eq", value: formattedDob }
       });
-    }
-    
-    // If no search criteria provided, return empty results
-    if (filters.length === 0) {
-      return res.json({
-        success: true,
-        source: 'none',
-        results: []
+      
+      // Also try to find by DOB in custom fields
+      filters.push({
+        filter: { fieldName: "customFields", operator: "hasSome", value: [
+          { name: "dateOfBirth", value: formattedDob }
+        ]}
       });
     }
     
-    // Properly structure the query according to Wix API requirements
+    // Prepare the request data
     const data = {
-      // The query object needs to be directly in the request body
-      filter: {
-        or: filters
+      query: {
+        filter: {
+          operator: "or",
+          filters: filters
+        }
       },
       paging: { limit: 10 },
       fields: [
@@ -239,28 +223,22 @@ app.post('/api/wix/search-member', async (req, res) => {
       
       // Log the first member to debug the structure
       if (membersResponse.data.members && membersResponse.data.members.length > 0) {
-        console.log('Found member structure:', JSON.stringify(membersResponse.data.members[0], null, 2));
-        
-        // Ensure each member has an _id property
-        const members = membersResponse.data.members.map(member => {
-          // If the member doesn't have an _id property but has an id property, use that
-          if (!member._id && member.id) {
-            member._id = member.id;
-          }
-          return member;
-        });
-        
-        return res.json({
-          success: true,
-          source: 'members',
-          results: members
-        });
+        console.log('First member found:', membersResponse.data.members[0].profile.name);
+      } else {
+        console.log('No members found in Members API response');
       }
-    } catch (error) {
-      console.warn('Members API search failed:', error.message);
+      
+      return res.json({
+        success: true,
+        source: 'members',
+        results: membersResponse.data.members || []
+      });
+    } catch (err) {
+      console.error('Members API search failed:', err.message);
+      // Continue to try Contacts API
     }
     
-    // Fallback to Contacts API if no members found
+    // If we get here, the Members API failed or returned no results
     console.log('No members found, trying Contacts API');
     const contactsUrl = `https://www.wixapis.com/contacts/v4/contacts/query`;
     
@@ -270,26 +248,14 @@ app.post('/api/wix/search-member', async (req, res) => {
       // Split the name into parts and search for each part individually
       const nameParts = name.split(' ').filter(part => part.trim().length > 0);
       
-      // Create a more flexible search by looking for any name part in any name field
+      // For each name part, try first name and last name
       nameParts.forEach(part => {
-        // Try to match the part against first name
         contactFilters.push({
           filter: { fieldName: "info.name.first", operator: "contains", value: part }
         });
         
-        // Try to match the part against last name
         contactFilters.push({
           filter: { fieldName: "info.name.last", operator: "contains", value: part }
-        });
-        
-        // Try to match against the display name if it exists
-        contactFilters.push({
-          filter: { fieldName: "info.name.full", operator: "contains", value: part }
-        });
-        
-        // Try to match against any custom name fields that might exist
-        contactFilters.push({
-          filter: { fieldName: "customFields.fullName", operator: "contains", value: part }
         });
       });
       
@@ -310,314 +276,145 @@ app.post('/api/wix/search-member', async (req, res) => {
         }
       }
       
+      // Try to find by DOB in extended fields
       contactFilters.push({
-        filter: { fieldName: "extendedFields.dob", operator: "eq", value: formattedDob }
+        filter: { fieldName: "info.extendedFields.dateOfBirth", operator: "eq", value: formattedDob }
       });
+      
+      // Also try to find by DOB in custom fields
       contactFilters.push({
-        filter: { fieldName: "extendedFields.birthdate", operator: "eq", value: formattedDob }
-      });
-      contactFilters.push({
-        filter: { fieldName: "extendedFields.dateOfBirth", operator: "eq", value: formattedDob }
+        filter: { fieldName: "info.customFields", operator: "hasSome", value: [
+          { name: "dateOfBirth", value: formattedDob }
+        ]}
       });
     }
     
-    // Properly structure the contacts query according to Wix API requirements
+    // Prepare the request data for contacts
     const contactsData = {
-      // The query object needs to be directly in the request body
-      filter: {
-        or: contactFilters
+      query: {
+        filter: {
+          operator: "or",
+          filters: contactFilters
+        }
       },
-      paging: { limit: 10 },
-      fields: [
-        "info",
-        "customFields",
-        "extendedFields"
-      ]
+      paging: { limit: 10 }
     };
     
-    let contactsResponse;
+    // Make the request to Contacts API
     try {
-      contactsResponse = await axios.post(contactsUrl, contactsData, { headers });
+      const contactsResponse = await axios.post(contactsUrl, contactsData, { headers });
       console.log('Contacts API search successful');
       return res.json({
         success: true,
         source: 'contacts',
         results: contactsResponse.data.contacts || []
       });
-    } catch (error) {
-      console.error('Contacts API search failed:', error.message);
-      return res.json({
+    } catch (err) {
+      console.error('Contacts API search failed:', err.message);
+      return res.status(500).json({
         success: false,
-        error: `Error searching for contacts: ${error.message}`
+        error: `Failed to search for members: ${err.message}`
       });
     }
   } catch (err) {
-    console.error('Wix API Search Error:', err.message);
-    res.status(500).json({
+    console.error('Error in search-member endpoint:', err);
+    return res.status(500).json({
       success: false,
-      error: `Error searching for member: ${err.message}`
+      error: `Error searching for members: ${err.message}`
     });
   }
 });
 
-// API endpoint to find a Wix member by firstName, lastName, and dateOfBirth
-app.post('/api/wix/find-member', async (req, res) => {
-  console.log('[API] /api/wix/find-member called');
-  console.log('Request body:', req.body);
-  
-  // Validate that we have at least some search criteria
-  const { firstName, lastName, dateOfBirth } = req.body;
-  
-  if ((!firstName || firstName.trim() === '') && 
-      (!lastName || lastName.trim() === '') && 
-      (!dateOfBirth || dateOfBirth.trim() === '')) {
-    console.error('Missing search parameters');
-    return res.status(400).json({
-      success: false,
-      error: 'At least one search parameter (firstName, lastName, or dateOfBirth) is required'
-    });
-  }
-  
+// API endpoint to get member details by ID
+app.get('/api/wix/member/:id', async (req, res) => {
+  console.log('[API] /api/wix/member/:id called with ID:', req.params.id);
   try {
-    console.log(`Looking up member: ${firstName} ${lastName}, DOB: ${dateOfBirth}`);
-    
-    // Use the WixService to find the member
-    const WixService = require('./services/WixService');
-    const result = await WixService.findMember({ firstName, lastName, dateOfBirth });
-    
-    res.json(result);
-  } catch (err) {
-    console.error('Wix API Find Member Error:', err.message);
-    res.status(500).json({
-      success: false,
-      error: `Error finding member: ${err.message}`
-    });
-  }
-});
-
-// API endpoint to get pricing plans for a member
-app.post('/api/wix/pricing-plans', async (req, res) => {
-  console.log('[API] /api/wix/pricing-plans called');
-  console.log('Request body:', req.body);
-  
-  // Validate memberId
-  const memberId = req.body?.memberId;
-  if (!memberId) {
-    console.error('Missing or invalid memberId in request');
-    return res.status(400).json({
-      success: false,
-      error: 'Member ID is required'
-    });
-  }
-  
-  console.log('memberId received:', memberId);
-  try {
-    // Use the WixService to get pricing plans
-    const WixService = require('./services/WixService');
-    const result = await WixService.getMemberPricingPlans(memberId);
-    
-    // Return the result directly from the WixService
-    res.json(result);
-  } catch (err) {
-    console.error('Wix API Pricing Plans Error:', err.message);
-    
-    // Extract error details from Axios error
-    const errorDetails = err.response ? {
-      status: err.response.status,
-      statusText: err.response.statusText,
-      data: err.response.data
-    } : { message: err.message };
-    
-    res.status(500).json({
-      success: false,
-      error: `Error getting pricing plans: ${err.message}`,
-      details: errorDetails
-    });
-  }
-});
-
-// API endpoint for Wix API Explorer available endpoints
-app.get('/api/wix-explorer/endpoints', async (req, res) => {
-  console.log('[API] /api/wix-explorer/endpoints called');
-  try {
-    // Load the WixApiExplorer module
-    const WixApiExplorer = require('./services/WixApiExplorer');
-    const endpoints = WixApiExplorer.getAvailableEndpoints();
-    res.json(endpoints);
-  } catch (err) {
-    console.error('Error getting Wix API Explorer endpoints:', err.message);
-    res.status(500).json({
-      success: false,
-      error: `Error getting endpoints: ${err.message}`
-    });
-  }
-});
-
-// API endpoint for testing Wix API calls
-app.post('/api/wix-explorer/test-api', async (req, res) => {
-  console.log('[API] /api/wix-explorer/test-api called');
-  console.log('Request body:', req.body);
-  try {
-    const { endpointId, searchParams } = req.body;
-    // Load the WixApiExplorer module
-    const WixApiExplorer = require('./services/WixApiExplorer');
-    const result = await WixApiExplorer.testApiCall(endpointId, searchParams);
-    res.json(result);
-  } catch (err) {
-    console.error('Error testing Wix API:', err.message);
-    res.status(500).json({
-      success: false,
-      error: `Error testing API: ${err.message}`
-    });
-  }
-});
-
-// API endpoint for testing Wix SDK
-app.post('/api/wix-sdk/test', async (req, res) => {
-  console.log('[API] /api/wix-sdk/test called');
-  console.log('Request body:', req.body);
-  try {
-    const { collectionId } = req.body;
-    // Load the WixSdkTest module
-    const WixSdkTest = require('./services/WixSdkTest');
-    const result = await WixSdkTest.testSdk(collectionId);
-    res.json(result);
-  } catch (err) {
-    console.error('Error testing Wix SDK:', err.message);
-    res.status(500).json({
-      success: false,
-      error: `Error testing SDK: ${err.message}`
-    });
-  }
-});
-
-// API endpoint for testing Wix SDK (simple version)
-app.post('/api/wix-sdk/test-simple', async (req, res) => {
-  console.log('[API] /api/wix-sdk/test-simple called');
-  console.log('Request body:', req.body);
-  try {
-    const { collectionId } = req.body;
-    // Load the WixSdkTestSimple module
-    const WixSdkTestSimple = require('./services/WixSdkTestSimple');
-    const result = await WixSdkTestSimple.testSdkSimple(collectionId);
-    res.json(result);
-  } catch (err) {
-    console.error('Error testing Wix SDK (simple):', err.message);
-    res.status(500).json({
-      success: false,
-      error: `Error testing SDK: ${err.message}`
-    });
-  }
-});
-
-// API endpoint for inspecting Wix SDK
-app.get('/api/wix-sdk/inspect', async (req, res) => {
-  console.log('[API] /api/wix-sdk/inspect called');
-  try {
-    // Load the WixSdkInspector module
-    const WixSdkInspector = require('./services/WixSdkInspector');
-    const result = await WixSdkInspector.inspectSdk();
-    res.json(result);
-  } catch (err) {
-    console.error('Error inspecting Wix SDK:', err.message);
-    res.status(500).json({
-      success: false,
-      error: `Error inspecting SDK: ${err.message}`
-    });
-  }
-});
-
-// API endpoint for testing Wix SDK Adapter
-app.post('/api/wix-sdk/adapter-test', async (req, res) => {
-  console.log('[API] /api/wix-sdk/adapter-test called');
-  console.log('Request body:', req.body);
-  try {
-    const { collectionId } = req.body;
-    // Load the WixSdkAdapter module
-    const WixSdkAdapter = require('./services/WixSdkAdapter');
-    const result = await WixSdkAdapter.testAdapter(collectionId);
-    res.json(result);
-  } catch (err) {
-    console.error('Error testing Wix SDK Adapter:', err.message);
-    res.status(500).json({
-      success: false,
-      error: `Error testing SDK Adapter: ${err.message}`
-    });
-  }
-});
-
-// API endpoint for testing Wix Direct API
-app.post('/api/wix-direct/test', async (req, res) => {
-  console.log('[API] /api/wix-direct/test called');
-  console.log('Request body:', req.body);
-  try {
-    const { endpoint } = req.body;
-    // Load the WixSdkAdapter module
-    const WixSdkAdapter = require('./services/WixSdkAdapter');
-    const result = await WixSdkAdapter.testAdapter(endpoint);
-    res.json(result);
-  } catch (err) {
-    console.error('Error testing Wix Direct API:', err.message);
-    res.status(500).json({
-      success: false,
-      error: `Error testing Direct API: ${err.message}`
-    });
-  }
-});
-
-// API endpoint for testing Wix SDK Compatibility Adapter
-app.post('/api/wix-sdk/compat-test', async (req, res) => {
-  console.log('[API] /api/wix-sdk/compat-test called');
-  console.log('Request body:', req.body);
-  try {
-    const { collectionId } = req.body;
-    // Load the WixSdkCompatAdapter module
-    const WixSdkCompatAdapter = require('./services/WixSdkCompatAdapter');
-    const result = await WixSdkCompatAdapter.testCompatAdapter(collectionId);
-    res.json(result);
-  } catch (err) {
-    console.error('Error testing Wix SDK Compatibility Adapter:', err.message);
-    res.status(500).json({
-      success: false,
-      error: `Error testing SDK Compatibility Adapter: ${err.message}`
-    });
-  }
-});
-
-// API endpoint to list pricing plan orders
-app.post('/api/wix/list-orders', async (req, res) => {
-  console.log('[API] /api/wix/list-orders called');
-  console.log('Request body:', req.body);
-  
-  try {
-    // Use the WixService to list pricing plan orders
-    const WixService = require('./services/WixService');
-    
-    // Extract filter, sort, and paging options from the request
-    const options = {
-      filter: req.body.filter || {},
-      sort: req.body.sort || { fieldName: 'createdDate', direction: 'DESC' },
-      paging: req.body.paging || { limit: 50, offset: 0 }
+    const memberId = req.params.id;
+    const memberUrl = `https://www.wixapis.com/members/v1/members/${memberId}`;
+    const headers = {
+      'Authorization': WIX_CONFIG.apiKey,
+      'wix-site-id': WIX_CONFIG.siteId
     };
     
-    console.log('Listing orders with options:', JSON.stringify(options, null, 2));
-    const result = await WixService.listOrders(options);
+    const response = await axios.get(memberUrl, { headers });
+    console.log('Member details retrieved successfully');
     
-    // Return the result directly from the WixService
-    res.json(result);
+    res.json({
+      success: true,
+      member: response.data.member
+    });
   } catch (err) {
-    console.error('Wix API List Orders Error:', err.message);
+    console.error('Error getting member details:', err.message);
+    res.status(500).json({
+      success: false,
+      error: `Failed to get member details: ${err.message}`
+    });
+  }
+});
+
+// API endpoint to get pricing plans
+app.get('/api/wix/pricing-plans', async (req, res) => {
+  console.log('[API] /api/wix/pricing-plans called');
+  try {
+    const plansUrl = `https://www.wixapis.com/pricing-plans/v2/plans`;
+    const headers = {
+      'Authorization': WIX_CONFIG.apiKey,
+      'wix-site-id': WIX_CONFIG.siteId
+    };
     
-    // Extract error details from Axios error
-    const errorDetails = err.response ? {
-      status: err.response.status,
-      statusText: err.response.statusText,
-      data: err.response.data
-    } : { message: err.message };
+    const response = await axios.get(plansUrl, { headers });
+    console.log('Pricing plans retrieved successfully');
     
+    res.json({
+      success: true,
+      plans: response.data.plans
+    });
+  } catch (err) {
+    console.error('Error getting pricing plans:', err.message);
+    res.status(500).json({
+      success: false,
+      error: `Failed to get pricing plans: ${err.message}`
+    });
+  }
+});
+
+// API endpoint to get member orders
+app.get('/api/wix/member/:id/orders', async (req, res) => {
+  console.log('[API] /api/wix/member/:id/orders called with ID:', req.params.id);
+  try {
+    const memberId = req.params.id;
+    const ordersUrl = `https://www.wixapis.com/ecom/v1/orders/query`;
+    const headers = {
+      'Authorization': WIX_CONFIG.apiKey,
+      'wix-site-id': WIX_CONFIG.siteId,
+      'Content-Type': 'application/json'
+    };
+    
+    // Query orders for this member
+    const data = {
+      query: {
+        filter: {
+          filter: { fieldName: "buyerInfo.memberId", operator: "eq", value: memberId }
+        },
+        sort: [{ fieldName: "dateCreated", order: "DESC" }]
+      },
+      paging: { limit: 10 }
+    };
+    
+    const response = await axios.post(ordersUrl, data, { headers });
+    console.log('Member orders retrieved successfully');
+    
+    res.json({
+      success: true,
+      orders: response.data.orders || []
+    });
+  } catch (err) {
+    console.error('Error getting member orders:', err.message);
     res.status(500).json({
       success: false,
       error: `Error listing orders: ${err.message}`,
+    });
+  }
 });
 
 // Endpoint to serve ID photos
@@ -654,8 +451,6 @@ app.get('*', (req, res) => {
 io.on('connection', (socket) => {
   console.log('New client connected');
   
-  // Send initial status
-  socket.emit('scanWatchStatus', { watching: scanIDWatcher.watching });
   // Send initial status
   socket.emit('scanWatchStatus', { watching: scanIDWatcher.watching });
   
