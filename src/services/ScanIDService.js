@@ -210,7 +210,8 @@ module.exports = {
         IDExpiration: latestRecord['EXPIRES ON'],
         IDIssued: latestRecord['ISSUED ON'],
         ScanTime: latestRecord['CREATED'],
-        PhotoPath: latestRecord['Image1']
+        // Update the photo path to point to the new location with correct file extension
+        PhotoPath: latestRecord['Image1'] ? path.join(__dirname, '../assets/scan-id-export-scan-demo', path.basename(latestRecord['Image1']).replace('.jpg', '.jpeg.jpeg')) : ''
       };
     } catch (err) {
       console.error('Error processing Scan-ID CSV:', err);

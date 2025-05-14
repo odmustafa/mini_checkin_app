@@ -472,6 +472,38 @@ app.post('/api/wix-explorer/test-api', async (req, res) => {
   }
 });
 
+// Endpoint to serve ID photos from the new location
+app.get('/api/photos/:filename', (req, res) => {
+  console.log('[API] Photo request for:', req.params.filename);
+  
+  // Security check - allow jpg and jpeg files
+  const filename = req.params.filename.toLowerCase();
+  if (!filename.endsWith('.jpg') && !filename.endsWith('.jpeg') && !filename.endsWith('.jpeg.jpeg')) {
+    return res.status(400).send('Invalid file type');
+  }
+  
+  // Build the path to the photo in the new location
+  let photoPath = path.join(__dirname, 'assets/scan-id-export-scan-demo', req.params.filename);
+  
+  // If the filename doesn't already have .jpeg.jpeg extension and we're looking for a jpg file
+  if (!req.params.filename.includes('.jpeg.jpeg') && req.params.filename.toLowerCase().endsWith('.jpg')) {
+    // Try with .jpeg.jpeg extension instead
+    photoPath = path.join(__dirname, 'assets/scan-id-export-scan-demo', 
+      req.params.filename.replace(/\.jpg$/i, '.jpeg.jpeg'));
+  }
+  
+  console.log('Looking for photo at:', photoPath);
+  
+  // Check if file exists
+  if (!fs.existsSync(photoPath)) {
+    console.error('Photo not found:', photoPath);
+    return res.status(404).send('Photo not found');
+  }
+  
+  // Send the file
+  res.sendFile(photoPath);
+});
+
 // API endpoint for testing Wix SDK
 app.post('/api/wix-sdk/test', async (req, res) => {
   console.log('[API] /api/wix-sdk/test called');

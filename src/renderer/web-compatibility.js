@@ -15,8 +15,18 @@ function convertPhotoPath(photoPath) {
   // Check if it's a file:// URL
   if (photoPath.startsWith('file://')) {
     // Extract the filename from the path
+    let filename = photoPath.split('/').pop().split('\\').pop();
+    
+    // Handle the file extension - we need to convert to .jpeg.jpeg for the new location
+    if (filename.toLowerCase().endsWith('.jpg')) {
+      filename = filename.replace(/\.jpg$/i, '.jpeg.jpeg');
+    }
+    
+    // Return a URL to our photo endpoint that serves from the new location
+    return `/api/photos/${filename}`;
+  } else if (photoPath.includes('scan-id-export-scan-demo')) {
+    // If it's already a path to the new location, extract just the filename
     const filename = photoPath.split('/').pop().split('\\').pop();
-    // Return a URL to our photo endpoint
     return `/api/photos/${filename}`;
   }
   
