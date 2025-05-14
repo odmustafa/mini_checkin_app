@@ -649,7 +649,9 @@ app.post('/api/wix/list-orders', async (req, res) => {
     
     res.status(500).json({
       success: false,
-      error: `Error listing orders: ${err.message}`,
+      error: `Error listing orders: ${err.message}`
+    });
+  }
 });
 
 // Endpoint to serve ID photos

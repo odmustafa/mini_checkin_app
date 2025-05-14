@@ -99,7 +99,7 @@ function fixImageSrc(img) {
 }
 
 // Initialize on document load
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function() {
   // Check if we're running in a browser environment (not Electron)
   const isWebEnvironment = !window.scanidAPI || !window.electronAPI;
   
@@ -111,9 +111,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Create a compatibility layer for Electron's window.wixSdk in web environment
     if (!window.wixSdk) {
-    console.log('Creating wixSdk compatibility layer for web');
-    
-    window.wixSdk = {
+      console.log('Creating wixSdk compatibility layer for web');
+      
+      window.wixSdk = {
       // Map searchMember to scanidAPI.findWixMember
       searchMember: async (params) => {
         console.log('Web compatibility: Redirecting wixSdk.searchMember to scanidAPI.findWixMember', params);
